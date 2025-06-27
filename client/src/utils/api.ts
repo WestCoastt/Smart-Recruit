@@ -185,3 +185,50 @@ export const getQuestionStats = async (): Promise<ApiResponse> => {
     };
   }
 };
+
+// 인성 테스트 문항 조회
+export const getPersonalityTestQuestions = async (): Promise<ApiResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/personality/questions`);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("인성 테스트 문항 조회 오류:", error);
+    return {
+      success: false,
+      message: "인성 테스트 문항 조회 중 오류가 발생했습니다.",
+    };
+  }
+};
+
+// 인성 테스트 제출
+export const submitPersonalityTest = async (
+  applicantId: string,
+  answers: { [questionId: string]: number },
+  totalTime: number
+): Promise<ApiResponse> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/personality/${applicantId}/submit`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          answers,
+          totalTime,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("인성 테스트 제출 오류:", error);
+    return {
+      success: false,
+      message: "인성 테스트 제출 중 오류가 발생했습니다.",
+    };
+  }
+};

@@ -22,15 +22,14 @@ const PersonalityInstructions: React.FC = () => {
   }, [applicantId, navigate]);
 
   // 인성 테스트 시작
-  const startPersonalityTest = () => {
+  const handleStartPersonalityTest = () => {
     if (!isAgreed) {
-      alert("안내사항에 동의해야 테스트를 시작할 수 있습니다.");
+      alert("안내사항에 동의해주시기 바랍니다.");
       return;
     }
 
-    if (applicantId) {
-      navigate(`/personality-test/${applicantId}`);
-    }
+    // PersonalityTest 컴포넌트로 이동
+    navigate(`/personality-test/${applicantId}`, { replace: true });
   };
 
   if (isLoading) {
@@ -163,7 +162,7 @@ const PersonalityInstructions: React.FC = () => {
           {/* 시작 버튼 */}
           <div className="text-center">
             <button
-              onClick={startPersonalityTest}
+              onClick={handleStartPersonalityTest}
               disabled={!isAgreed}
               className={`px-8 py-4 text-lg font-bold rounded-lg transition-all duration-200 ${
                 isAgreed

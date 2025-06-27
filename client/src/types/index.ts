@@ -39,7 +39,8 @@ export interface MultipleChoiceQuestion {
   category: QuestionCategory;
   question: string;
   options: string[];
-  questionNumber: number;
+  answer: string;
+  explanation?: string;
   type: "multiple-choice";
 }
 
@@ -48,7 +49,8 @@ export interface ShortAnswerQuestion {
   _id: string;
   category: QuestionCategory;
   question: string;
-  questionNumber: number;
+  answer: string[];
+  explanation?: string;
   type: "short-answer";
 }
 
@@ -63,4 +65,18 @@ export interface TechnicalTestData {
   shortAnswerCount: number;
   timeLimit: number;
   categories: QuestionCategory[];
+}
+
+// 인성 테스트 관련 타입
+export type PersonalityCategory = "cooperate" | "responsibility" | "leadership";
+
+export interface PersonalityQuestion {
+  _id: string;
+  content: string;
+  category: PersonalityCategory;
+}
+
+export interface PersonalityTestData {
+  questions: PersonalityQuestion[];
+  totalQuestions: number;
 }

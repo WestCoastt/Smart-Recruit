@@ -25,11 +25,33 @@ export interface IApplicant extends Document {
     submittedAt: Date;
   };
 
-  // 인성 테스트 결과 (추후 구현)
+  // 인성 테스트 결과
   personalityTest?: {
     answers: { [questionId: string]: number };
     totalTime: number;
     submittedAt: Date;
+    questionDetails: {
+      questionId: string;
+      category: string;
+      selected_answer: number;
+      reverse_scoring: boolean;
+      final_score: number;
+    }[];
+    scores: {
+      cooperate: {
+        score: number;
+        level: string;
+      };
+      responsibility: {
+        score: number;
+        level: string;
+      };
+      leadership: {
+        score: number;
+        level: string;
+      };
+      total: number;
+    };
   };
 }
 
@@ -97,6 +119,30 @@ const ApplicantSchema: Schema = new Schema(
       },
       totalTime: Number,
       submittedAt: Date,
+      questionDetails: [
+        {
+          questionId: String,
+          category: String,
+          selected_answer: Number,
+          reverse_scoring: Boolean,
+          final_score: Number,
+        },
+      ],
+      scores: {
+        cooperate: {
+          score: Number,
+          level: String,
+        },
+        responsibility: {
+          score: Number,
+          level: String,
+        },
+        leadership: {
+          score: Number,
+          level: String,
+        },
+        total: Number,
+      },
     },
   },
   {

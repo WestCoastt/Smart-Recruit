@@ -3,13 +3,15 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  useNavigate,
   useParams,
+  useNavigate,
 } from "react-router-dom";
 import ApplicantForm from "./pages/ApplicantForm";
 import Instructions from "./pages/Instructions";
 import TechnicalTest from "./pages/TechnicalTest";
 import PersonalityInstructions from "./pages/PersonalityInstructions";
+import PersonalityTest from "./pages/PersonalityTest";
+import EvaluationComplete from "./pages/EvaluationComplete";
 import type { ApplicantInfo, TechnicalTestData } from "./types";
 import {
   setStoredApplicantData,
@@ -32,6 +34,14 @@ const App: React.FC = () => {
           <Route
             path="/personality-instructions/:applicantId"
             element={<PersonalityInstructionsWrapper />}
+          />
+          <Route
+            path="/personality-test/:applicantId"
+            element={<PersonalityTestWrapper />}
+          />
+          <Route
+            path="/evaluation-complete/:applicantId"
+            element={<EvaluationComplete />}
           />
         </Routes>
       </div>
@@ -170,6 +180,17 @@ const PersonalityInstructionsWrapper: React.FC = () => {
   }
 
   return <PersonalityInstructions />;
+};
+
+// PersonalityTest용 래퍼 컴포넌트
+const PersonalityTestWrapper: React.FC = () => {
+  const { applicantId } = useParams<{ applicantId: string }>();
+
+  if (!applicantId) {
+    return <div>잘못된 접근입니다.</div>;
+  }
+
+  return <PersonalityTest applicantId={applicantId} />;
 };
 
 export default App;

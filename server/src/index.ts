@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import applicantsRouter from "./routes/applicants";
 import questionsRouter from "./routes/questions";
+import personalityRouter from "./routes/personality";
 
 // 환경 변수 로드
 dotenv.config();
@@ -35,6 +36,7 @@ const connectDB = async () => {
 // API 라우트
 app.use("/api/applicants", applicantsRouter);
 app.use("/api/questions", questionsRouter);
+app.use("/api/personality", personalityRouter);
 
 // 기본 라우트
 app.get("/", (req, res) => {
@@ -47,10 +49,18 @@ app.get("/", (req, res) => {
         create: "POST /api/applicants",
         getAll: "GET /api/applicants",
         getById: "GET /api/applicants/:id",
+        submitTechnicalTest: "POST /api/applicants/:applicantId/technical-test",
+        resetTechnicalTest:
+          "DELETE /api/applicants/:applicantId/technical-test",
       },
       questions: {
         getTechnicalTest: "GET /api/questions/technical-test",
         getStats: "GET /api/questions/stats",
+      },
+      personality: {
+        getQuestions: "GET /api/personality/questions",
+        submit: "POST /api/personality/:applicantId/submit",
+        reset: "DELETE /api/personality/:applicantId/reset",
       },
     },
   });
