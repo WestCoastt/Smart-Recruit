@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import type { ApplicantInfo } from "../types";
+import { submitApplicantInfo } from "../utils/api";
 
 // 유효성 검증 스키마
 const schema = yup.object({
@@ -25,10 +26,12 @@ const schema = yup.object({
 });
 
 interface ApplicantFormProps {
-  onSubmit: (data: ApplicantInfo) => void;
+  onSubmit?: (data: ApplicantInfo & { applicantId: string }) => void;
 }
 
 const ApplicantForm: React.FC<ApplicantFormProps> = ({ onSubmit }) => {
+  const [submitError, setSubmitError] = useState<string>("");
+
   const {
     register,
     handleSubmit,
@@ -37,9 +40,36 @@ const ApplicantForm: React.FC<ApplicantFormProps> = ({ onSubmit }) => {
     resolver: yupResolver(schema),
   });
 
-  const handleFormSubmit = (data: ApplicantInfo) => {
-    // 전화번호는 이미 숫자만 입력되므로 그대로 사용
-    onSubmit(data);
+  const handleFormSubmit = async (data: ApplicantInfo) => {
+    try {
+      setSubmitError("");
+
+      // 서버로 데이터 전송
+      const response = await submitApplicantInfo(data);
+
+      if (response.success) {
+        // 성공 시 onSubmit 콜백 호출 (applicantId 포함) - 즉시 페이지 이동
+        if (
+          onSubmit &&
+          response.data &&
+          typeof response.data === "object" &&
+          response.data !== null &&
+          "applicantId" in response.data
+        ) {
+          onSubmit({
+            ...data,
+            applicantId: (response.data as { applicantId: string }).applicantId,
+          });
+        }
+      }
+    } catch (error: unknown) {
+      console.error("지원자 정보 제출 실패:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "서버 오류가 발생했습니다. 다시 시도해주세요.";
+      setSubmitError(errorMessage);
+    }
   };
 
   return (
@@ -142,6 +172,26 @@ const ApplicantForm: React.FC<ApplicantFormProps> = ({ onSubmit }) => {
               </p>
             )}
           </div>
+
+          {/* 오류 메시지 표시 */}
+          {submitError && (
+            <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 border border-red-300 rounded-lg">
+              <div className="flex items-center">
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {submitError}
+              </div>
+            </div>
+          )}
 
           {/* 제출 버튼 */}
           <button
