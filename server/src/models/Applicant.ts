@@ -53,6 +53,53 @@ export interface IApplicant extends Document {
       total: number;
     };
   };
+
+  // AI 생성 리포트
+  aiReport?: {
+    report: {
+      technicalAnalysis: {
+        overallLevel: string;
+        strengths: string[];
+        weaknesses: string[];
+        timeEfficiency: string;
+      };
+      personalityAnalysis: {
+        cooperation: string;
+        responsibility: string;
+        leadership: string;
+        organizationFit: string;
+        growthPotential: string;
+      };
+      overallAssessment: {
+        recommendation: "high" | "medium" | "low";
+        mainStrengths: string[];
+        improvementAreas: string[];
+      };
+      interviewFocus: {
+        technicalPoints: string[];
+        personalityPoints: string[];
+      };
+    };
+    interviewQuestions: {
+      technical: Array<{
+        category: string;
+        question: string;
+        purpose: string;
+      }>;
+      personality: Array<{
+        category: string;
+        question: string;
+        purpose: string;
+      }>;
+      followUp: Array<{
+        type: string;
+        question: string;
+        purpose: string;
+      }>;
+    };
+    generatedAt: Date;
+    modelUsed: string;
+  };
 }
 
 // 지원자 스키마 정의
@@ -143,6 +190,44 @@ const ApplicantSchema: Schema = new Schema(
         },
         total: Number,
       },
+    },
+
+    // AI 생성 리포트
+    aiReport: {
+      report: {
+        technicalAnalysis: {
+          overallLevel: String,
+          strengths: [String],
+          weaknesses: [String],
+          timeEfficiency: String,
+        },
+        personalityAnalysis: {
+          cooperation: String,
+          responsibility: String,
+          leadership: String,
+          organizationFit: String,
+          growthPotential: String,
+        },
+        overallAssessment: {
+          recommendation: {
+            type: String,
+            enum: ["high", "medium", "low"],
+          },
+          mainStrengths: [String],
+          improvementAreas: [String],
+        },
+        interviewFocus: {
+          technicalPoints: [String],
+          personalityPoints: [String],
+        },
+      },
+      interviewQuestions: {
+        technical: Schema.Types.Mixed,
+        personality: Schema.Types.Mixed,
+        followUp: Schema.Types.Mixed,
+      },
+      generatedAt: Date,
+      modelUsed: String,
     },
   },
   {

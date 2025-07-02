@@ -444,16 +444,6 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
             <div className="bg-white rounded-lg shadow p-6">
               {/* 문제 정보 */}
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
-                    {currentQuestion.category}
-                  </span>
-                  <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm font-medium rounded-full">
-                    {currentQuestion.type === "multiple-choice"
-                      ? "객관식"
-                      : "주관식"}
-                  </span>
-                </div>
                 <div className="text-sm text-gray-500">
                   문제 {currentQuestionIndex + 1} / {questions.length}
                 </div>

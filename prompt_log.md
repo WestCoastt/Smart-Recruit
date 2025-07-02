@@ -198,6 +198,94 @@ interface IApplicant {
 #### 에러 처리 시스템
 
 - MongoDB 유효성 검증 오류 (ValidationError)
+- 이메일 중복 오류 (11000 에러 코드)
+- 네트워크 오류 및 서버 오류 처리
+- 클라이언트 사이드 에러 상태 관리
+
+---
+
+## AI 리포트 시스템 개선
+
+### 2025-01-02 - AI 리포트 저장 오류 수정
+
+**문제 상황**:
+MongoDB에 AI 리포트가 저장되지 않는 문제 발생. 로그 분석 결과 다음과 같은 문제들을 확인:
+
+1. **JSON 파싱 오류**: AI가 반환하는 JSON에 백틱(```) 포함
+2. **데이터 타입 불일치**: 배열 형태로 반환되는 데이터가 문자열로 저장되려고 함
+3. **스키마 검증 실패**: MongoDB 스키마와 실제 데이터 구조 불일치
+
+**프롬프트**: "mongo db에 ai 리포팅이 저장되지 않았어 [...] log 첨부한거 확인해"
+
+**해결 방법**:
+
+#### 1. AI 응답 전처리 시스템 구현
+
+````typescript
+// JSON 파싱을 위한 전처리
+let cleanContent = content.trim();
+
+// 백틱으로 감싸진 경우 제거
+if (cleanContent.startsWith("```json")) {
+  cleanContent = cleanContent.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+} else if (cleanContent.startsWith("```")) {
+  cleanContent = cleanContent.replace(/^```\s*/, "").replace(/\s*```$/, "");
+}
+````
+
+#### 2. 데이터 구조 검증 및 기본값 설정
+
+```typescript
+// 데이터 구조 검증 및 기본값 설정
+return {
+  technicalAnalysis: {
+    overallLevel: parsedData.technicalAnalysis?.overallLevel || "중",
+    strengths: Array.isArray(parsedData.technicalAnalysis?.strengths)
+      ? parsedData.technicalAnalysis.strengths
+      : [],
+    weaknesses: Array.isArray(parsedData.technicalAnalysis?.weaknesses)
+      ? parsedData.technicalAnalysis.weaknesses
+      : [],
+    timeEfficiency: parsedData.technicalAnalysis?.timeEfficiency || "보통",
+  },
+  // ... 기타 필드들
+};
+```
+
+#### 3. 안전한 폴백 시스템
+
+```typescript
+// 파싱 실패 시 기본 구조 반환
+return {
+  technicalAnalysis: {
+    overallLevel: "중",
+    strengths: ["분석 중"],
+    weaknesses: ["분석 중"],
+    timeEfficiency: "보통",
+  },
+  // ... 기본 구조
+};
+```
+
+#### 4. 프롬프트 개선
+
+- AI 시스템 메시지에 **백틱 사용 금지** 명시
+- JSON 형식 강제를 위한 프롬프트 수정
+- 응답 형식 가이드라인 강화
+
+**개선된 파일들**:
+
+- `server/src/utils/aiReportGenerator.ts`: AI 응답 파싱 로직 개선
+- 두 함수 모두 동일한 안전장치 적용:
+  - `generateAIReport()`: 리포트 생성 함수
+  - `generateInterviewQuestions()`: 면접 질문 생성 함수
+
+**결과**:
+
+- AI 응답의 안정적인 파싱 보장
+- MongoDB 저장 오류 해결
+- 파싱 실패 시에도 기본 데이터 제공
+- 사용자 경험 개선 (오류 시에도 서비스 중단 없음)
 - 이메일 중복 오류 (E11000)
 - 서버 내부 오류 (500)
 - 네트워크 오류 처리
@@ -330,388 +418,430 @@ interface IApplicant {
 
 ---
 
-## 2025-01-11
-
-### 기술 역량 테스트 화면 구현 및 부정행위 방지 시스템
-
-**프롬프트**: 이제 기술 역량 테스트 화면을 만들어서 api와 연결해줘
-
-문제는 한문제씩 보여주면 되고
-
-테스트 화면에서 다른 탭/창으로 이동
-브라우저 최소화 또는 다른 애플리케이션으로 전환
-
-이럴경우 평가를 종료시켜야해
-
-그리고 브라우저의 뒤로가기 버튼 클릭시 평가가 종료된다는 알림창을 띄우고
-페이지 나가기 / 페이지에 계속 있기 버튼을 사용자에게 보여줘서 선택할 수 있게 해야해
-
-**구현 내용**:
-
-1. **TechnicalTest 컴포넌트 구현**
-
-   - 한 문제씩 표시하는 UI
-   - 객관식/주관식 문제 지원
-   - 30분 타이머 (실시간 카운트다운)
-   - 문제 네비게이션 (완료/미완료 상태 표시)
-
-2. **부정행위 방지 시스템**
-
-   - `document.visibilitychange` 이벤트로 화면 이탈 감지
-   - `window.blur` 이벤트로 다른 애플리케이션 전환 감지
-   - 부정행위 감지 시 즉시 평가 종료
-
-3. **브라우저 뒤로가기 방지**
-
-   - `beforeunload` 이벤트로 페이지 나가기 경고
-   - `popstate` 이벤트로 뒤로가기 감지
-   - 사용자 선택형 confirm 창 ("페이지 나가기" vs "페이지에 계속 있기")
-   - History API를 활용한 뒤로가기 방지
-
-4. **UI/UX 특징**
-
-   - 문제별 진행률 표시 (프로그레스 바)
-   - 문제 목록 네비게이션 (완료/현재/미완료 상태 구분)
-   - 시간 부족 시 빨간색 경고 (5분 미만)
-   - 미완료 문제 제출 시 확인 창
-   - 로딩 스피너 및 에러 처리
-
-5. **라우팅 시스템**
-   - `/test/:applicantId` 경로 추가
-   - 지원자 ID 검증 및 접근 제어
-   - 안내사항 페이지에서 테스트 페이지로 자동 이동
-
-**기술적 구현**:
-
-- React Hooks (useState, useEffect, useCallback)
-- 타이머 관리 (setInterval)
-- 브라우저 이벤트 리스너 관리
-- History API 조작
-- 반응형 디자인 (Tailwind CSS)
-
-**보안 고려사항**:
-
-- 화면 이탈 1회 감지 시 즉시 종료
-- 브라우저 뒤로가기 시 사용자 의사 확인
-- 제한 시간 초과 시 자동 종료
-- 답변 데이터 실시간 저장
-
-_이 로그는 개발 과정에서 지속적으로 업데이트됩니다._
-
-## 6단계: 기술 역량 테스트 제출 시 부정행위 감지 방지 개선
-
-### 문제점
-
-- 테스트 제출 버튼 클릭 시 나타나는 confirm/alert 창으로 인해 `blur` 이벤트가 발생
-- 이로 인해 부정행위로 오인되어 테스트가 종료되는 문제
-
-### 해결 방안 구현
-
-- **상태 플래그 추가**: `isShowingAlert` 상태로 alert/confirm 창 표시 여부 추적
-- **부정행위 감지 로직 수정**:
-  - `handleBlur`: alert 표시 중일 때는 부정행위 감지 제외
-  - `handleVisibilityChange`: alert 표시 중일 때는 화면 이탈 감지 제외
-- **제출 과정 보호**:
-  - 미완료 문제 확인 창
-  - 최종 제출 확인 창
-  - 제출 완료 알림 창
-  - 각 단계에서 `setIsShowingAlert(true/false)` 호출하여 보호
-- **confirm 창 닫힘 후 blur 이벤트 처리**:
-  - `setTimeout(100ms)` 지연을 두어 confirm 창이 완전히 닫힌 후 `isShowingAlert` 상태 해제
-  - confirm 취소 버튼 클릭 시 발생하는 blur 이벤트도 방지
-
-### 변경된 파일
-
-- `client/src/pages/TechnicalTest.tsx`: 부정행위 감지 로직 개선, 불필요한 변수 제거
-
-### 기술적 개선사항
-
-- TypeScript 타입 오류 수정: `MultipleChoiceQuestion` 타입 사용
-- 사용하지 않는 import 및 변수 정리
-- 린터 오류 해결
-
-## 현재 상태
-
-- 테스트 제출 과정에서 부정행위 오감지 문제 해결
-- 정상적인 화면 이탈이나 애플리케이션 전환은 여전히 감지
-- 사용자 경험 개선: 제출 과정에서 오류 없이 진행 가능
-
-## 7단계: 기술 테스트 제출 및 채점 시스템 구현
-
-### 백엔드 구현
-
-- **지원자 모델 확장** (`server/src/models/Applicant.ts`):
-
-  - 기술 테스트 결과 저장 필드 추가: answers, questionTimes, totalTime, score, results
-  - 인성 테스트 결과 필드 준비 (향후 구현)
-
-- **기술 테스트 제출 API** (`server/src/controllers/applicantController.ts`):
-
-  - `submitTechnicalTest`: 답변 제출 및 자동 채점 기능
-  - **유연한 주관식 채점**: 대소문자, 공백, 특수문자 무시하여 정답 판별
-    - "Round Robin", "라운드로빈", "roundrobin" 모두 정답 처리
-    - `normalizeAnswer` 함수로 답안 정규화
-  - 객관식/주관식 구분 채점
-  - 문제별 소요시간 및 전체 소요시간 저장
-  - 채점 결과 및 점수 계산
-
-- **API 라우트 추가** (`server/src/routes/applicants.ts`):
-  - `POST /api/applicants/:applicantId/technical-test`: 기술 테스트 제출
-
-### 프론트엔드 구현
-
-- **API 함수 추가** (`client/src/utils/api.ts`):
-
-  - `submitTechnicalTest`: 답변, 문제별 소요시간, 전체 소요시간 전송
-
-- **TechnicalTest 컴포넌트 개선** (`client/src/pages/TechnicalTest.tsx`):
-  - **문제별 소요시간 추적**: 각 문제 진입/이탈 시점 기록
-  - **제출 기능 구현**:
-    - 서버로 답변 및 소요시간 전송
-    - 채점 결과 표시 (점수/만점/백분율)
-    - 제출 완료 후 인성 테스트 안내 페이지로 이동
-  - **제출 버튼 로딩 상태**: 중복 제출 방지
-
-### 인성 테스트 안내사항 페이지 구현
-
-- **새 컴포넌트** (`client/src/pages/PersonalityInstructions.tsx`):
-
-  - **테스트 개요**: 120문항, 15분, 5점 척도, 협업/책임감/리더십 평가
-  - **주의사항**: 솔직한 답변, 시간 관리 안내
-  - **부정행위 방지 정책**: 화면 전환, 뒤로가기, 외부 자료 참고 금지
-  - **권장 환경**: 브라우저, 네트워크, 화면 해상도, 환경 안내
-  - **동의 체크박스**: 필수 동의 후 테스트 시작 가능
-  - **반응형 디자인**: 색상 코딩으로 섹션별 구분
-
-- **라우팅 추가** (`client/src/App.tsx`):
-  - `/personality-instructions/:applicantId` 경로 추가
-  - 지원자 ID 검증 래퍼 컴포넌트
-
-### 기술적 특징
-
-- **유연한 주관식 채점**:
-  ```javascript
-  const normalizeAnswer = (answer: string): string => {
-    return answer
-      .toLowerCase()
-      .replace(/[\s\-_\.]/g, "")
-      .trim();
-  };
-  ```
-- **실시간 소요시간 추적**: 문제별 진입/이탈 시점 기록
-- **중복 제출 방지**: `isSubmitting` 상태로 제출 버튼 비활성화
-- **자동 채점 알고리즘**: 객관식 정확 매칭, 주관식 유연 매칭
-
-### 사용자 플로우
-
-1. 기술 테스트 완료 → 제출 버튼 클릭
-2. 미완료 문제 확인 → 최종 제출 확인
-3. 서버에서 자동 채점 → 점수 표시
-4. 인성 테스트 안내사항 페이지로 자동 이동
-5. 안내사항 확인 및 동의 → 인성 테스트 시작
-
-## 현재 상태
-
-- 기술 테스트 제출 및 채점 시스템 완료
-- 주관식 답안 유연한 채점 로직 구현
-- 인성 테스트 안내사항 페이지 구현 완료
-- 채점 결과 비공개 처리 완료
-- 다음 단계: 인성 테스트 화면 구현 필요
-
-### 사용자 경험 개선
-
-- **채점 결과 비공개**: 기술 테스트 제출 후 점수를 사용자에게 보여주지 않음
-  - 제출 완료 alert 제거
-  - 바로 인성 테스트 안내 페이지로 이동
-  - 채점 결과는 관리자 페이지에서만 확인 가능
-
-## 현재 상태
-
-- 기술 테스트 제출 및 채점 시스템 완료
-- 주관식 답안 유연한 채점 로직 구현
-- 인성 테스트 안내사항 페이지 구현 완료
-- 채점 결과 비공개 처리 완료
-- 다음 단계: 인성 테스트 화면 구현 필요
-
-### 2025-01-28 - 인성 테스트 채점 시스템 구현
-
-**프롬프트**: "지원자가 제출 버튼을 누르면 데이터를 서버로 보내고 채점을 할거야. 채점기준은 아래와 같아. [채점 기준 제시] reverse_scoring: true 라고 되어 있는 문항은 역채점을 해야해. api를 만들고 나면 평가가 종료되었다는 페이지를 만들어"
-
-**활용 내역**:
-
-#### 백엔드 채점 시스템 구현
-
-1. **지원자 모델 확장**
-
-   - `server/src/models/Applicant.ts`: 인성 테스트 채점 결과 필드 추가
-   - 카테고리별 점수 및 레벨 저장 구조
-   - 총점 계산 필드 추가
-
-2. **채점 로직 구현**
-
-   - `calculatePersonalityScores` 함수: 3개 컬렉션에서 문항 조회
-   - 역채점 시스템: `reverse_scoring: true` 문항 처리 (6-점수)
-   - 카테고리별 점수 누적: cooperate, responsibility, leadership
-   - 레벨 판정: 160-200(높은 수준), 120-159(보통), 80-119(낮은 수준)
-
-3. **API 업데이트**
-   - `submitPersonalityTest`: 채점 결과 포함하여 저장
-   - 실시간 채점 및 결과 반환
-   - 상세한 로깅으로 디버깅 지원
-
-#### 프론트엔드 개선
-
-1. **평가 완료 페이지 업그레이드**
-
-   - `client/src/pages/EvaluationComplete.tsx`: 완전히 새로운 디자인
-   - 그라데이션 배경 및 애니메이션 효과
-   - 완료된 평가 항목 체크리스트 표시
-   - 다음 단계 상세 안내 (3단계 프로세스)
-   - 평가 완료 시간 자동 기록
-
-2. **UI/UX 개선사항**
-   - 성공 아이콘 애니메이션 (pulse 효과)
-   - 이모지 활용한 친근한 메시지
-   - 카드형 레이아웃으로 정보 구조화
-   - 호버 효과 및 그라데이션 버튼
-
-**채점 알고리즘**:
-
-```typescript
-// 역채점 처리
-if (question.reverse_scoring) {
-  score = 6 - answer; // 1→5, 2→4, 3→3, 4→2, 5→1
-}
-
-// 레벨 판정
-const getLevel = (score: number): string => {
-  if (score >= 160) return "높은 수준";
-  if (score >= 120) return "보통";
-  return "낮은 수준";
+## 2025-01-16 면접 질문 생성 가이드라인 복원
+
+### 문제 인식
+
+- 백업 파일에 있던 상세한 면접 질문 생성 가이드라인이 현재 파일에서 누락됨
+- 기존의 단순한 프롬프트로는 고품질의 맞춤형 면접 질문 생성이 어려움
+
+### 복원된 기능들
+
+#### 1. 기술 테스트 상세 분석 로직
+
+```javascript
+// 맞힌 문제 중 빠르게 해결한 문제 (심화 질문 대상)
+const fastCorrectQuestions = correctQuestions
+  .filter((q) => q.timeSpent < 60)
+  .sort((a, b) => a.timeSpent - b.timeSpent)
+  .slice(0, 3);
+
+// 틀린 문제 (개념 확인 대상)
+const incorrectQuestions = questionDetails.filter((q) => !q.isCorrect);
+
+// 오래 걸린 문제 (문제해결 과정 질문 대상)
+const slowQuestions = questionDetails
+  .filter((q) => q.timeSpent > 120)
+  .sort((a, b) => b.timeSpent - a.timeSpent)
+  .slice(0, 3);
+```
+
+#### 2. 인성 테스트 심화 분석
+
+```javascript
+// 카테고리별 극단적 응답 분류
+const extremeByCategory = {
+  cooperate: personalityQuestionsWithContent.filter(
+    (q) => q.category === "cooperate"
+  ),
+  responsibility: personalityQuestionsWithContent.filter(
+    (q) => q.category === "responsibility"
+  ),
+  leadership: personalityQuestionsWithContent.filter(
+    (q) => q.category === "leadership"
+  ),
+};
+
+// 일반적인 응답 분석 (극단적 응답이 없는 경우 대비)
+const generalResponsesByCategory = {
+  cooperate: allPersonalityResponses.filter((q) => q.category === "cooperate"),
+  // ... 각 카테고리별 평균 응답 계산
 };
 ```
 
-**데이터 구조**:
+#### 3. 상세한 면접 질문 생성 가이드라인
 
-```typescript
-scores: {
-  cooperate: { score: number, level: string },
-  responsibility: { score: number, level: string },
-  leadership: { score: number, level: string },
-  total: number
+**기술 질문 전략:**
+
+1. 맞힌 문제 → 심화 질문 (예: "Java GC를 맞혔다면 → G1GC와 ZGC의 차이점")
+2. 틀린 문제 → 개념 확인 (예: "XSS를 틀렸다면 → CSRF와의 차이점")
+3. 오래 걸린 문제 → 문제 해결 과정 질문
+
+**인성 질문 전략:**
+
+1. **극단적 응답이 있는 경우**: 실제 문항 내용 인용하여 구체적 경험 확인
+
+   - 선택 답변을 명시적으로 언급
+   - 예: "'팀 프로젝트에서 중재 역할을 한다'에서 '매우 그렇다'를 선택하셨는데, 실제 중재 경험을 말씀해 주세요"
+
+2. **극단적 응답이 없는 경우**: 해당 영역의 일반적 역량 확인
+
+   - "극단적 응답이 없으셨는데" 같은 부정적 표현 금지
+   - 구체적 경험 사례를 요구하는 질문 생성
+
+3. **질문 생성 규칙**:
+   - 역채점 문항 특성 고려
+   - 추상적 질문("어떻게 생각하시나요?") 지양
+   - 구체적 경험 사례 중심
+
+#### 4. 향상된 프롬프트 구조
+
+- 기술 테스트 상세 분석 섹션 추가
+- 인성 테스트 극단적 응답 상세 분석 추가
+- 면접 질문 생성 가이드라인 명시
+- 질문 수량: 기술 6-8개, 인성 4-6개, 꼬리 3-4개
+
+### 기대 효과
+
+- 지원자의 실제 응답 패턴을 바탕으로 한 맞춤형 면접 질문
+- 극단적 응답에 대한 구체적 근거 확인 가능
+- 기술 역량의 강점/약점 영역별 차별화된 질문
+- 면접관에게 실질적으로 도움이 되는 고품질 질문 생성
+
+### 사용된 프롬프트 패턴
+
+```
+당신은 면접관을 위한 전문적인 질문 생성 전문가입니다.
+
+=== 기술 테스트 상세 분석 ===
+[맞힌 문제/틀린 문제/오래 걸린 문제 분석]
+
+=== 인성 테스트 극단적 응답 상세 분석 ===
+[협업/책임감/리더십별 극단적 응답 및 문항 내용]
+
+=== 면접 질문 생성 가이드라인 ===
+[기술/인성 질문 전략 및 생성 규칙]
+```
+
+이러한 구조화된 가이드라인을 통해 AI가 더욱 정교하고 실용적인 면접 질문을 생성할 수 있게 되었습니다.
+
+---
+
+## 2025-01-16 면접 질문 생성 로직 최종 개선
+
+### 사용자 요구사항
+
+- 실제 문항 내용을 최대 10개가 아닌 **모든 극단적 응답** 조회
+- 극단적 응답이 있으면 해당 문항들을 **모두 질문으로 생성**
+- 극단적 응답이 없으면 **각 카테고리에서 2개씩 랜덤 선택**하여 질문 생성
+- 질문 형식을 더 구체적으로 개선: `"[문항 내용]" 항목에 "[선택 답변]"을 선택해주셨는데, 구체적인 경험이나 사례를 들어 설명해 주세요.`
+
+### 주요 개선사항
+
+#### 1. 극단적 응답 전체 조회
+
+```javascript
+// 기존: 최대 10개만 조회
+for (const response of extremeResponses.slice(0, 10)) {
+
+// 개선: 모든 극단적 응답 조회
+for (const response of extremeResponses) {
+```
+
+#### 2. 랜덤 문항 선택 로직 추가
+
+```javascript
+// 극단적 응답이 없는 경우 각 카테고리에서 2개씩 랜덤 선택
+if (extremeResponses.length === 0) {
+  const cooperateQuestions = await CooperateQuestion.aggregate([
+    { $sample: { size: 2 } },
+  ]);
+  const responsibilityQuestions = await ResponsibilityQuestion.aggregate([
+    { $sample: { size: 2 } },
+  ]);
+  const leadershipQuestions = await LeadershipQuestion.aggregate([
+    { $sample: { size: 2 } },
+  ]);
 }
 ```
 
-### 2025-01-28 - 인성 테스트 UI 개선 및 데이터 구조 최적화
+#### 3. 4단계 강화된 JSON 파싱 시스템
 
-**프롬프트**: "배점은 안보여도 되니까 제거하고 보기를 가로로 배치해줘"
-"문항 내용을 살짝 강조해줘"
-"태그 부분도 제거해줘"
-"홈으로 돌아가기 버튼이랑 귀하의 열정과 역량을 확인할 수 있는 좋은 기회였습니다. 이 문구는 제거해줘"
+```javascript
+// 1차: 기본 정리
+// 2차: 강력한 복구 함수 (한글 조사, 따옴표 처리)
+// 3차: 정규식 추출 + 따옴표 밸런싱
+// 4차: 수동 패턴 매칭 복구
+```
 
-**활용 내역**:
+#### 4. 질문 형식 표준화
 
-#### UI/UX 개선사항
+**극단적 응답:**
 
-1. **5점 척도 레이아웃 개선**
+- 형식: `"[문항 내용]" 항목에 "[선택 답변]"을 선택해주셨는데, 구체적인 경험이나 사례를 들어 설명해 주세요.`
+- 예시: `"나는 팀 프로젝트에서 책임감을 가지고 리드한다." 항목에 "매우 그렇다"를 선택해주셨는데, 구체적인 경험이나 사례를 들어 설명해 주세요.`
 
-   - 배점 표시 제거 (1점, 2점 등 숨김)
-   - 세로 리스트 → 가로 카드 형태로 변경
-   - 반응형 디자인: 모바일(1열), 데스크톱(5열)
-   - 라디오 버튼을 상단, 텍스트를 하단에 배치
+**랜덤 선택:**
 
-2. **문항 내용 강조**
+- 형식: `"[문항 내용]"와 관련해서 본인의 경험이나 사례를 구체적으로 말씀해 주세요.`
+- 예시: `"나는 팀원들과의 의사소통에서 갈등을 잘 조율한다."와 관련해서 본인의 경험이나 사례를 구체적으로 말씀해 주세요.`
 
-   - 텍스트 크기: `text-lg` → `text-lg`
-   - 글씨 굵기: `font-medium` → `font-semibold`
-   - 배경 강조: 연한 파란색 배경 (`bg-blue-50`)
-   - 좌측 강조선: 파란색 세로선 (`border-l-4 border-blue-500`)
-   - 패딩 및 둥근 모서리로 카드 형태 구현
+### 최종 질문 생성 전략
 
-3. **인터페이스 간소화**
+#### 극단적 응답이 있는 경우
 
-   - 카테고리 태그 제거 (협업/책임감/리더십 표시 제거)
-   - 문항 목록 그리드 비율 조정 (4:3 → 3:1)
-   - 문항 버튼 크기 최적화: `w-10 h-10` → `w-8 h-8`
+- **모든** 극단적 응답 문항에 대해 개별 질문 생성
+- 실제 문항 내용과 선택 답변을 명시적으로 언급
+- 구체적인 경험과 사례 요구
 
-4. **평가 완료 페이지 최적화**
-   - 홈으로 돌아가기 버튼 제거
-   - 불필요한 문구 제거
-   - 심플하고 깔끔한 완료 메시지로 정리
+#### 극단적 응답이 없는 경우
 
-### 2025-01-28 - 인성 테스트 데이터 구조 및 채점 시스템 고도화
+- 협업/책임감/리더십 각 카테고리에서 2개씩 랜덤 선택
+- 총 6개의 랜덤 문항 기반 질문 생성
+- 문항 내용을 언급하되 선택 답변은 언급하지 않음
 
-**프롬프트**: "mongo db에 인성테스트 결과를 저장할때 아래와 같이 각 문항별 데이터도 배열로 저장해줘. 그리고 채점결과가 낮은 수준이 아니라 낮은 책임감이런식으로 저장해줘"
+### 기대 효과
 
-**활용 내역**:
+- **완전한 맞춤형 질문**: 지원자의 모든 극단적 응답에 대한 구체적 확인
+- **균형 잡힌 평가**: 극단적 응답이 없어도 각 영역별 2개씩 질문 확보
+- **실용적인 질문**: 실제 문항 내용을 직접 인용하여 면접관이 쉽게 활용 가능
+- **안정적인 생성**: 4단계 JSON 파싱으로 생성 실패율 대폭 감소
 
-#### 데이터베이스 구조 개선
+이제 지원자의 응답 패턴에 완벽하게 맞춤화된 면접 질문이 생성될 것입니다.
 
-1. **문항별 상세 데이터 저장**
+---
 
-   ```typescript
-   questionDetails: [
-     {
-       questionId: string,
-       category: string,
-       selected_answer: number,
-       reverse_scoring: boolean,
-       final_score: number,
-     },
-   ];
-   ```
+## 2025-01-16 면접 질문 생성 버그 수정
 
-2. **채점 결과 개선**
-   - **이전**: "낮은 수준", "보통", "높은 수준"
-   - **개선**: "낮은 협업", "보통 책임감", "높은 리더십"
-   - 카테고리명 포함으로 더욱 구체적인 평가 결과
+### 발견된 문제점
 
-#### 채점 로직 고도화
+1. **극단적 응답 누락**: "나는 팀원의 기술적 도전을 격려하지 않는다"에 "매우 그렇다"로 답했음에도 해당 질문이 생성되지 않음
+2. **지원자 답변 누락**: 생성된 질문에서 지원자가 실제로 선택한 답변이 질문에 포함되지 않음
 
-1. **상세 추적 시스템**
+### 근본 원인 분석
 
-   - 각 문항의 선택 답변 기록
-   - 역채점 적용 여부 추적
-   - 최종 계산된 점수 저장
-   - 카테고리별 분류 정보 포함
+1. **잘못된 랜덤 보충 로직**: 극단적 응답이 있어도 전체가 0개일 때만 체크하여 랜덤 문항이 추가되지 않음
+2. **질문 형식 불명확**: AI 프롬프트에서 지원자의 답변을 질문에 포함하라는 지시가 약함
 
-2. **개선된 레벨 판정**
+### 수정사항
 
-   ```typescript
-   const getLevel = (score: number, category: string): string => {
-     const categoryName =
-       {
-         cooperate: "협업",
-         responsibility: "책임감",
-         leadership: "리더십",
-       }[category] || category;
+#### 1. 카테고리별 개별 체크 로직으로 변경
 
-     if (score >= 160) return `높은 ${categoryName}`;
-     if (score >= 120) return `보통 ${categoryName}`;
-     return `낮은 ${categoryName}`;
-   };
-   ```
+```javascript
+// 기존: 전체 극단적 응답이 0개일 때만 랜덤 추가
+if (extremeResponses.length === 0) {
 
-3. **종합 데이터 구조**
-   ```javascript
-   {
-     "personalityTest": {
-       "answers": { "문항ID": 답변점수 },
-       "totalTime": 900,
-       "questionDetails": [문항별상세배열],
-       "scores": {
-         "cooperate": { "score": 138, "level": "보통 협업" },
-         "responsibility": { "score": 118, "level": "낮은 책임감" },
-         "leadership": { "score": 136, "level": "보통 리더십" },
-         "total": 392
-       }
-     }
-   }
-   ```
+// 수정: 각 카테고리별로 개별 체크
+for (const category of categories) {
+  const extremeCount = extremeByCategory[category.name].length;
+  if (extremeCount < 2) {
+    const needCount = 2 - extremeCount;
+    // 부족한 만큼만 랜덤 보충
+  }
+}
+```
 
-**최종 달성 효과**:
+#### 2. 질문 형식 표준화 강화
 
-- 더욱 직관적이고 깔끔한 UI
-- 상세한 채점 추적 시스템
-- 의미있는 평가 결과 표현
-- 관리자 페이지를 위한 풍부한 데이터 기반 마련
+**기존 형식:**
+
+```
+"[문항 내용]" 항목에 "[선택 답변]"을 선택해주셨는데, 구체적인 경험이나 사례를 들어 설명해 주세요.
+```
+
+**개선된 형식:**
+
+```
+"[문항 내용]"에 대해 "[선택 답변]"라고 답변하셨는데, 구체적인 경험이나 사례를 말씀해 주세요.
+```
+
+#### 3. AI 시스템 메시지 강화
+
+```
+"극단적 응답 문항의 경우 지원자가 선택한 답변('매우 그렇다', '전혀 그렇지 않다' 등)을 반드시 질문에 포함시켜야 합니다."
+```
+
+#### 4. 타입 시스템 개선
+
+```typescript
+type QuestionWithContent = {
+  questionId: string;
+  category: string;
+  content: string;
+  selected_answer: number;
+  reverse_scoring: boolean;
+  final_score: number;
+  isRandom?: boolean;
+};
+```
+
+### 예상 결과
+
+- **완전한 극단적 응답 포착**: 모든 1점/5점 응답이 질문으로 생성
+- **명확한 질문 형식**: "'나는 팀원의 기술적 도전을 격려하지 않는다.'에 대해 '매우 그렇다'라고 답변하셨는데..."
+- **균형 잡힌 질문 수**: 각 카테고리별 최소 2개씩 확보
+- **정확한 맥락 제공**: 면접관이 지원자의 실제 답변을 알고 질문 가능
+
+이제 지원자의 극단적 응답이 빠짐없이 포착되고, 실제 답변이 포함된 명확한 면접 질문이 생성될 것입니다.
+
+---
+
+## 최신 이슈: 극단적 응답 감지 실패 문제 (진행 중)
+
+### 문제 상황
+
+지원자가 명확한 극단적 응답을 했음에도 불구하고 AI 면접 질문 생성 시 해당 응답들이 반영되지 않고 있음.
+
+**지원자의 실제 극단적 응답:**
+
+1. "나는 팀 내에서 코드 품질 기준을 주도적으로 유지한다" → **"전혀 그렇지 않다"** (1점)
+2. "나는 팀 내에서 새로운 아이디어를 공유하는 것을 즐긴다" → **"전혀 그렇지 않다"** (1점)
+3. "나는 팀 프로젝트에서 역할 분담을 명확히 하는 데 관심이 없다" → **"매우 그렇다"** (5점)
+4. "나는 팀 내에서 기술적 표준화를 주도한다" → **"전혀 그렇지 않다"** (1점)
+5. "나는 팀 프로젝트에서 동료의 성공을 기뻐한다" → **"매우 그렇다"** (5점)
+
+**실제 DB에 저장된 AI 질문:** 전혀 다른 랜덤 문항들 기반의 일반적인 질문들...
+
+### 가능한 원인
+
+1. 극단적 응답 필터링 로직이 작동하지 않음
+2. 서버 재시작 없이 이전 코드가 실행되고 있음
+3. 데이터 타입 불일치 (확인 완료: `selected_answer`는 `number` 타입)
+4. 로그 미출력으로 인한 디버깅 어려움
+
+### 추가한 디버깅 로그
+
+```typescript
+console.log("=== 극단적 응답 분석 ===");
+console.log(
+  "전체 인성 테스트 응답 수:",
+  applicantData.personalityTest.questionDetails.length
+);
+console.log("극단적 응답 수:", extremeResponses.length);
+console.log(
+  "극단적 응답 상세:",
+  extremeResponses.map((r) => ({
+    questionId: r.questionId,
+    category: r.category,
+    selected_answer: r.selected_answer,
+    reverse_scoring: r.reverse_scoring,
+  }))
+);
+
+console.log("=== 카테고리별 극단적 응답 분류 ===");
+console.log("협업 극단적 응답:", extremeByCategory.cooperate.length, "개");
+console.log(
+  "책임감 극단적 응답:",
+  extremeByCategory.responsibility.length,
+  "개"
+);
+console.log("리더십 극단적 응답:", extremeByCategory.leadership.length, "개");
+
+extremeByCategory.cooperate.forEach((q) =>
+  console.log(`협업: "${q.content}" (${q.selected_answer}점)`)
+);
+extremeByCategory.responsibility.forEach((q) =>
+  console.log(`책임감: "${q.content}" (${q.selected_answer}점)`)
+);
+extremeByCategory.leadership.forEach((q) =>
+  console.log(`리더십: "${q.content}" (${q.selected_answer}점)`)
+);
+```
+
+### 해결 완료! ✅
+
+**문제 원인 발견:**
+라인 459-467에서 `extremeByCategory`를 `allQuestionsForAnalysis`로 다시 필터링하면서 극단적 응답이 랜덤 응답으로 덮어쓰여짐.
+
+**해결 방법:**
+
+1. `extremeByCategory`는 원래 극단적 응답만 유지
+2. `randomByCategory`를 별도로 생성
+3. `finalAnalysisData`에서 극단적 응답 + 랜덤 응답 결합
+4. AI 프롬프트에는 `finalAnalysisData` 사용
+
+**수정된 로직:**
+
+```typescript
+// 극단적 응답은 그대로 유지
+const extremeByCategory = { ... };
+
+// 랜덤 응답은 별도 관리
+const randomByCategory = { ... };
+
+// 최종 분석용 데이터 (극단적 + 랜덤)
+const finalAnalysisData = {
+  cooperate: [...extremeByCategory.cooperate, ...randomByCategory.cooperate],
+  responsibility: [...extremeByCategory.responsibility, ...randomByCategory.responsibility],
+  leadership: [...extremeByCategory.leadership, ...randomByCategory.leadership],
+};
+```
+
+이제 지원자의 극단적 응답이 정확히 AI 프롬프트에 전달되어 맞춤형 면접 질문이 생성될 것입니다.
+
+### 추가 문제 발견 및 해결 ✅
+
+**문제:** 스프레드 연산자(`...response`) 사용 시 객체 속성이 `undefined`로 복사됨
+
+**해결:** 명시적 속성 지정으로 변경
+
+```typescript
+// 기존 (문제)
+personalityQuestionsWithContent.push({
+  ...response,
+  content: questionContent || "문항 내용을 찾을 수 없습니다.",
+});
+
+// 수정 (해결)
+personalityQuestionsWithContent.push({
+  questionId: response.questionId,
+  category: response.category,
+  selected_answer: response.selected_answer,
+  reverse_scoring: response.reverse_scoring,
+  final_score: response.final_score,
+  content: questionContent || "문항 내용을 찾을 수 없습니다.",
+});
+```
+
+**최종 결과:** 극단적 응답이 정확히 감지되고 AI 프롬프트에 전달되어 맞춤형 면접 질문 생성 완료!
+
+### 질문 개수 로직 개선 ✅
+
+**요구사항:** 극단적 응답 개수에 맞춰 면접 질문 생성
+
+- 극단적 응답이 7개면 → 7개 질문 생성
+- 극단적 응답이 0개면 → 2개 랜덤 질문 생성
+
+**수정된 로직:**
+
+```typescript
+// 기존: 무조건 2개씩 생성
+if (extremeCount < 2) {
+  const needCount = 2 - extremeCount;
+  // 랜덤 보충
+}
+
+// 수정: 극단적 응답 개수에 맞춰 생성
+if (extremeCount === 0) {
+  const needCount = 2; // 극단적 응답이 없으면 무조건 2개
+  // 랜덤 2개 생성
+} else {
+  // 극단적 응답이 1개 이상이면 극단적 응답 개수만큼 질문 생성 (랜덤 추가 안함)
+}
+```
+
+**AI 프롬프트 동적 생성:**
+
+```typescript
+// 인성 질문 생성 요구사항:
+// - 협업 관련: ${cooperateCount}개 질문 생성
+// - 책임감 관련: ${responsibilityCount}개 질문 생성
+// - 리더십 관련: ${leadershipCount}개 질문 생성
+// - 총 인성 질문: ${totalPersonalityQuestions}개
+```
+
+이제 지원자의 극단적 응답 패턴에 정확히 맞춘 개수의 면접 질문이 생성됩니다!
+
+## 결과
+
+TypeScript 컴파일 오류가 모두 해결되고, JSON 파싱 안정성이 대폭 향상되며, 지원자의 모든 극단적 응답이 빠짐없이 포착되어 실제 답변이 포함된 명확한 면접 질문이 생성되는 완전한 AI 리포트 생성 시스템이 완성됨. 최종적으로 극단적 응답 개수에 정확히 맞춘 개수의 맞춤형 면접 질문이 생성되도록 개선됨. 또한 기술 테스트에서 틀린 문제의 실제 내용과 정답까지 포함하여 더욱 구체적이고 유용한 면접 질문이 생성되도록 완성됨.

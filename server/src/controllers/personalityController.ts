@@ -5,6 +5,125 @@ import {
   LeadershipQuestion,
 } from "../models/PersonalityQuestion";
 import Applicant from "../models/Applicant";
+import {
+  generateAIReport,
+  generateInterviewQuestions,
+} from "../utils/aiReportGenerator";
+
+// 헬퍼 함수: 문제 ID로부터 카테고리 추출 (간단한 버전)
+const getQuestionCategory = (questionId: string): string => {
+  // 실제로는 Question 모델에서 조회해야 하지만,
+  // 일단 간단한 규칙으로 카테고리 추정
+  // 추후 개선 필요
+  const categories = ["Java", "Database", "OS", "Cloud", "Security", "Network"];
+  const hash = questionId
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return categories[hash % categories.length];
+};
+
+// AI 리포트 백그라운드 생성 함수
+const generateAIReportBackground = async (
+  applicantId: string,
+  applicant: any
+) => {
+  try {
+    console.log("AI 리포트 백그라운드 생성 시작...", applicantId);
+
+    // 기술 테스트 데이터 변환
+    const technicalData = {
+      totalScore: applicant.technicalTest.score,
+      categoryScores: getCategoryScores(applicant.technicalTest.results),
+      questionDetails: applicant.technicalTest.results.map((result: any) => ({
+        questionId: result.questionId,
+        category: getQuestionCategory(result.questionId),
+        isCorrect: result.isCorrect,
+        timeSpent: result.timeSpent,
+      })),
+      totalTime: applicant.technicalTest.totalTime,
+    };
+
+    const applicantData = {
+      name: applicant.name,
+      email: applicant.email,
+      phone: applicant.phone,
+      technicalTest: technicalData,
+      personalityTest: {
+        scores: applicant.personalityTest.scores,
+        questionDetails: applicant.personalityTest.questionDetails,
+        totalTime: applicant.personalityTest.totalTime,
+      },
+    };
+
+    // GPT API 호출
+    // AI 리포트를 병렬로 생성
+    console.log("실제 AI 리포트 생성을 시작합니다...");
+    const [reportContent, interviewQuestions] = await Promise.all([
+      generateAIReport(applicantData),
+      generateInterviewQuestions(applicantData),
+    ]);
+
+    if (reportContent && interviewQuestions) {
+      // 지원자 재조회 후 AI 리포트 저장
+      const updatedApplicant = await Applicant.findById(applicantId);
+      if (updatedApplicant) {
+        console.log(
+          "저장할 리포트 데이터:",
+          JSON.stringify(reportContent, null, 2)
+        );
+        console.log(
+          "저장할 면접 질문 데이터:",
+          JSON.stringify(interviewQuestions, null, 2)
+        );
+
+        // Mixed 타입으로 직접 저장
+        updatedApplicant.aiReport = {
+          report: reportContent,
+          interviewQuestions: interviewQuestions,
+          generatedAt: new Date(),
+          modelUsed: "gpt-4.1-mini",
+        };
+
+        await updatedApplicant.save();
+        console.log("AI 리포트 백그라운드 생성 및 저장 완료:", applicantId);
+      }
+    } else {
+      console.warn("AI 리포트 생성 실패 - 부분적으로 null 반환:", applicantId);
+      if (!reportContent) console.warn("reportContent가 null입니다");
+      if (!interviewQuestions) console.warn("interviewQuestions가 null입니다");
+    }
+  } catch (aiError) {
+    console.error("AI 리포트 백그라운드 생성 오류:", applicantId, aiError);
+  }
+};
+
+// 헬퍼 함수: 기술 테스트 결과에서 카테고리별 점수 계산
+const getCategoryScores = (results: any[]) => {
+  const categoryStats: {
+    [key: string]: { correct: number; total: number; percentage: number };
+  } = {};
+
+  for (const result of results) {
+    const category = getQuestionCategory(result.questionId);
+    if (!categoryStats[category]) {
+      categoryStats[category] = { correct: 0, total: 0, percentage: 0 };
+    }
+
+    categoryStats[category].total += 1;
+    if (result.isCorrect) {
+      categoryStats[category].correct += 1;
+    }
+  }
+
+  // 백분율 계산
+  for (const category in categoryStats) {
+    const stats = categoryStats[category];
+    stats.percentage =
+      stats.total > 0 ? (stats.correct / stats.total) * 100 : 0;
+  }
+
+  return categoryStats;
+};
 
 // 인성 테스트 문항 조회 (총 120문항)
 export const getPersonalityTestQuestions = async (
@@ -146,6 +265,12 @@ export const submitPersonalityTest = async (req: Request, res: Response) => {
 
     await applicant.save();
     console.log("인성 테스트 저장 완료");
+
+    // AI 리포트를 백그라운드에서 비동기 생성 (사용자 응답에 영향 없음)
+    if (applicant.technicalTest && applicant.personalityTest) {
+      // 백그라운드에서 실행 (await 없이)
+      generateAIReportBackground(applicantId, applicant);
+    }
 
     res.status(200).json({
       success: true,

@@ -1,0 +1,598 @@
+import "dotenv/config";
+import OpenAI from "openai";
+import {
+  CooperateQuestion,
+  ResponsibilityQuestion,
+  LeadershipQuestion,
+} from "../models/PersonalityQuestion";
+
+// OpenAI API 키 확인
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+console.log("OpenAI API 키 존재 여부:", !!OPENAI_API_KEY);
+console.log("OpenAI API 키 길이:", OPENAI_API_KEY ? OPENAI_API_KEY.length : 0);
+
+let openai: OpenAI | null = null;
+
+if (OPENAI_API_KEY && OPENAI_API_KEY.length > 10) {
+  try {
+    openai = new OpenAI({
+      apiKey: OPENAI_API_KEY,
+    });
+    console.log("OpenAI 클라이언트 초기화 성공");
+  } catch (error) {
+    console.error("OpenAI 클라이언트 초기화 실패:", error);
+  }
+} else {
+  console.warn(
+    "OpenAI API 키가 설정되지 않았습니다. AI 리포트 기능이 작동하지 않습니다."
+  );
+}
+
+interface TechnicalResult {
+  totalScore: number;
+  categoryScores: {
+    [category: string]: {
+      correct: number;
+      total: number;
+      percentage: number;
+    };
+  };
+  questionDetails: Array<{
+    questionId: string;
+    category: string;
+    isCorrect: boolean;
+    timeSpent: number;
+    difficulty?: string;
+  }>;
+  totalTime: number;
+}
+
+interface PersonalityResult {
+  scores: {
+    cooperate: { score: number; level: string };
+    responsibility: { score: number; level: string };
+    leadership: { score: number; level: string };
+    total: number;
+  };
+  questionDetails: Array<{
+    questionId: string;
+    category: string;
+    selected_answer: number;
+    reverse_scoring: boolean;
+    final_score: number;
+  }>;
+  totalTime: number;
+}
+
+interface ApplicantData {
+  name: string;
+  email: string;
+  phone: string;
+  technicalTest: TechnicalResult;
+  personalityTest: PersonalityResult;
+}
+
+export async function generateAIReport(applicantData: ApplicantData) {
+  try {
+    // OpenAI 클라이언트가 초기화되지 않은 경우 기본 구조 반환
+    if (!openai) {
+      console.warn(
+        "OpenAI 클라이언트가 초기화되지 않아 기본 리포트를 반환합니다."
+      );
+      return {
+        technicalAnalysis: {
+          overallLevel: "중",
+          strengths: ["AI 분석 미사용"],
+          weaknesses: ["AI 분석 미사용"],
+          timeEfficiency: "보통",
+        },
+        personalityAnalysis: {
+          cooperation: "AI 분석 미사용",
+          responsibility: "AI 분석 미사용",
+          leadership: "AI 분석 미사용",
+          organizationFit: "AI 분석 미사용",
+          growthPotential: "AI 분석 미사용",
+        },
+        overallAssessment: {
+          recommendation: "medium",
+          mainStrengths: ["AI 분석 미사용"],
+          improvementAreas: ["AI 분석 미사용"],
+        },
+        interviewFocus: {
+          technicalPoints: ["AI 분석 미사용"],
+          personalityPoints: ["AI 분석 미사용"],
+        },
+      };
+    }
+    const prompt = `
+당신은 전문 HR 컨설턴트입니다. 다음 지원자의 평가 결과를 분석하여 JSON 형태로 구조화된 리포트를 작성해주세요.
+
+**지원자 정보:**
+- 이름: ${applicantData.name}
+- 이메일: ${applicantData.email}
+
+**기술 테스트 결과:**
+- 총점: ${applicantData.technicalTest.totalScore}점/30점
+- 소요시간: ${Math.floor(applicantData.technicalTest.totalTime / 60)}분 ${
+      applicantData.technicalTest.totalTime % 60
+    }초
+- 카테고리별 성과:
+${Object.entries(applicantData.technicalTest.categoryScores)
+  .map(
+    ([category, score]) =>
+      `  * ${category}: ${score.correct}/${
+        score.total
+      } (${score.percentage.toFixed(1)}%)`
+  )
+  .join("\n")}
+
+**인성 테스트 결과:**
+- 협업: ${applicantData.personalityTest.scores.cooperate.score}점 (${
+      applicantData.personalityTest.scores.cooperate.level
+    })
+- 책임감: ${applicantData.personalityTest.scores.responsibility.score}점 (${
+      applicantData.personalityTest.scores.responsibility.level
+    })
+- 리더십: ${applicantData.personalityTest.scores.leadership.score}점 (${
+      applicantData.personalityTest.scores.leadership.level
+    })
+- 총점: ${applicantData.personalityTest.scores.total}점
+
+다음 JSON 구조로 리포트를 작성해주세요. **반드시 유효한 JSON만 반환하고 백틱이나 다른 텍스트는 포함하지 마세요**:
+
+{
+  "technicalAnalysis": {
+    "overallLevel": "전반적인 기술 수준 평가 (상/중/하)",
+    "strengths": ["강점 영역1", "강점 영역2"],
+    "weaknesses": ["약점 영역1", "약점 영역2"],
+    "timeEfficiency": "소요시간 대비 정답률 분석"
+  },
+  "personalityAnalysis": {
+    "cooperation": "협업 능력 분석",
+    "responsibility": "책임감 분석",
+    "leadership": "리더십 분석",
+    "organizationFit": "조직 적응도 예측",
+    "growthPotential": "성장 가능성 평가"
+  },
+  "overallAssessment": {
+    "recommendation": "high|medium|low",
+    "mainStrengths": ["주요 강점1", "주요 강점2", "주요 강점3"],
+    "improvementAreas": ["개선 영역1", "개선 영역2"]
+  },
+  "interviewFocus": {
+    "technicalPoints": ["기술 면접 확인 포인트1", "기술 면접 확인 포인트2"],
+    "personalityPoints": ["인성 면접 확인 포인트1", "인성 면접 확인 포인트2"]
+  }
+}
+`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "당신은 전문적이고 객관적인 HR 평가 전문가입니다. 반드시 유효한 JSON 형식으로만 응답하며, 백틱(```)이나 추가 텍스트는 절대 포함하지 않습니다.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 1500,
+      temperature: 0.7,
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) return null;
+
+    // JSON 파싱을 위한 전처리
+    let cleanContent = content.trim();
+
+    // 백틱으로 감싸진 경우 제거
+    if (cleanContent.startsWith("```json")) {
+      cleanContent = cleanContent
+        .replace(/^```json\s*/, "")
+        .replace(/\s*```$/, "");
+    } else if (cleanContent.startsWith("```")) {
+      cleanContent = cleanContent.replace(/^```\s*/, "").replace(/\s*```$/, "");
+    }
+
+    // JSON 파싱 시도
+    try {
+      const parsedData = JSON.parse(cleanContent);
+
+      // 데이터 구조 검증 및 기본값 설정
+      return {
+        technicalAnalysis: {
+          overallLevel: parsedData.technicalAnalysis?.overallLevel || "중",
+          strengths: Array.isArray(parsedData.technicalAnalysis?.strengths)
+            ? parsedData.technicalAnalysis.strengths
+            : [],
+          weaknesses: Array.isArray(parsedData.technicalAnalysis?.weaknesses)
+            ? parsedData.technicalAnalysis.weaknesses
+            : [],
+          timeEfficiency:
+            parsedData.technicalAnalysis?.timeEfficiency || "보통",
+        },
+        personalityAnalysis: {
+          cooperation: parsedData.personalityAnalysis?.cooperation || "분석 중",
+          responsibility:
+            parsedData.personalityAnalysis?.responsibility || "분석 중",
+          leadership: parsedData.personalityAnalysis?.leadership || "분석 중",
+          organizationFit:
+            parsedData.personalityAnalysis?.organizationFit || "분석 중",
+          growthPotential:
+            parsedData.personalityAnalysis?.growthPotential || "분석 중",
+        },
+        overallAssessment: {
+          recommendation:
+            parsedData.overallAssessment?.recommendation || "medium",
+          mainStrengths: Array.isArray(
+            parsedData.overallAssessment?.mainStrengths
+          )
+            ? parsedData.overallAssessment.mainStrengths
+            : [],
+          improvementAreas: Array.isArray(
+            parsedData.overallAssessment?.improvementAreas
+          )
+            ? parsedData.overallAssessment.improvementAreas
+            : [],
+        },
+        interviewFocus: {
+          technicalPoints: Array.isArray(
+            parsedData.interviewFocus?.technicalPoints
+          )
+            ? parsedData.interviewFocus.technicalPoints
+            : [],
+          personalityPoints: Array.isArray(
+            parsedData.interviewFocus?.personalityPoints
+          )
+            ? parsedData.interviewFocus.personalityPoints
+            : [],
+        },
+      };
+    } catch (parseError) {
+      console.error("JSON 파싱 실패:", parseError);
+      console.error("받은 내용:", cleanContent);
+
+      // 파싱 실패 시 기본 구조 반환
+      return {
+        technicalAnalysis: {
+          overallLevel: "중",
+          strengths: ["분석 중"],
+          weaknesses: ["분석 중"],
+          timeEfficiency: "보통",
+        },
+        personalityAnalysis: {
+          cooperation: "분석 중",
+          responsibility: "분석 중",
+          leadership: "분석 중",
+          organizationFit: "분석 중",
+          growthPotential: "분석 중",
+        },
+        overallAssessment: {
+          recommendation: "medium",
+          mainStrengths: ["분석 중"],
+          improvementAreas: ["분석 중"],
+        },
+        interviewFocus: {
+          technicalPoints: ["분석 중"],
+          personalityPoints: ["분석 중"],
+        },
+      };
+    }
+  } catch (error) {
+    console.error("AI 리포트 생성 오류:", error);
+    return null;
+  }
+}
+
+export async function generateInterviewQuestions(applicantData: ApplicantData) {
+  try {
+    // OpenAI 클라이언트가 초기화되지 않은 경우 기본 구조 반환
+    if (!openai) {
+      console.warn(
+        "OpenAI 클라이언트가 초기화되지 않아 기본 면접 질문을 반환합니다."
+      );
+      return {
+        technical: [
+          {
+            category: "기술",
+            question: "AI 분석 미사용 - 기본 기술 질문",
+            purpose: "기술 역량 확인",
+          },
+        ],
+        personality: [
+          {
+            category: "인성",
+            question: "AI 분석 미사용 - 기본 인성 질문",
+            purpose: "인성 평가",
+          },
+        ],
+        followUp: [
+          {
+            type: "추가 확인",
+            question: "AI 분석 미사용 - 기본 추가 질문",
+            purpose: "심화 평가",
+          },
+        ],
+      };
+    }
+
+    // 기술 테스트 상세 분석
+    const correctQuestions = applicantData.technicalTest.questionDetails.filter(
+      (q) => q.isCorrect
+    );
+    const incorrectQuestions =
+      applicantData.technicalTest.questionDetails.filter((q) => !q.isCorrect);
+    const slowQuestions = applicantData.technicalTest.questionDetails
+      .filter((q) => q.timeSpent > 120) // 2분 이상 걸린 문제
+      .sort((a, b) => b.timeSpent - a.timeSpent)
+      .slice(0, 3);
+    const fastCorrectQuestions = correctQuestions
+      .filter((q) => q.timeSpent < 60) // 1분 미만으로 맞힌 문제
+      .sort((a, b) => a.timeSpent - b.timeSpent)
+      .slice(0, 3);
+
+    // 인성 테스트 극단적 응답 분석 (1점 또는 5점)
+    const extremeResponses =
+      applicantData.personalityTest.questionDetails.filter(
+        (q) => q.selected_answer === 1 || q.selected_answer === 5
+      );
+
+    // 실제 문항 내용 조회
+    const personalityQuestionsWithContent = [];
+    for (const response of extremeResponses.slice(0, 10)) {
+      // 최대 10개만 조회
+      try {
+        let question = null;
+        let questionContent = "";
+
+        if (response.category === "cooperate") {
+          question = await CooperateQuestion.findById(response.questionId);
+        } else if (response.category === "responsibility") {
+          question = await ResponsibilityQuestion.findById(response.questionId);
+        } else if (response.category === "leadership") {
+          question = await LeadershipQuestion.findById(response.questionId);
+        }
+
+        if (question) {
+          questionContent = question.content;
+        }
+
+        personalityQuestionsWithContent.push({
+          ...response,
+          content: questionContent || "문항 내용을 찾을 수 없습니다.",
+        });
+      } catch (error) {
+        console.error(`문항 ${response.questionId} 조회 오류:`, error);
+        personalityQuestionsWithContent.push({
+          ...response,
+          content: "문항 내용을 찾을 수 없습니다.",
+        });
+      }
+    }
+
+    // 카테고리별 극단적 응답 분류 (실제 문항 내용 포함)
+    const extremeByCategory = {
+      cooperate: personalityQuestionsWithContent.filter(
+        (q) => q.category === "cooperate"
+      ),
+      responsibility: personalityQuestionsWithContent.filter(
+        (q) => q.category === "responsibility"
+      ),
+      leadership: personalityQuestionsWithContent.filter(
+        (q) => q.category === "leadership"
+      ),
+    };
+
+    // 카테고리별 일반적인 응답 분석 (극단적 응답이 없는 경우를 위해)
+    const allPersonalityResponses = applicantData.personalityTest.questionDetails;
+    const generalResponsesByCategory = {
+      cooperate: allPersonalityResponses.filter((q) => q.category === "cooperate"),
+      responsibility: allPersonalityResponses.filter((q) => q.category === "responsibility"),
+      leadership: allPersonalityResponses.filter((q) => q.category === "leadership"),
+    };
+
+    // 인성 테스트에서 낮은 점수 영역
+    const personalityWeakness = Object.entries(
+      applicantData.personalityTest.scores
+    )
+      .filter(([key]) => key !== "total")
+      .sort(([, a], [, b]) => (a as any).score - (b as any).score)
+      .slice(0, 2);
+
+    // 5점 척도 라벨 매핑
+    const getScaleLabel = (score: number): string => {
+      const labels = {
+        1: "전혀 그렇지 않다",
+        2: "그렇지 않다",
+        3: "보통이다",
+        4: "그렇다",
+        5: "매우 그렇다",
+      };
+      return labels[score as keyof typeof labels] || `${score}점`;
+    };
+
+    const prompt = `
+당신은 면접관을 위한 전문적인 질문 생성 전문가입니다. 다음 지원자의 상세한 평가 결과를 바탕으로 맞춤형 면접 질문을 생성해주세요.
+
+**=== 기술 테스트 상세 분석 ===**
+
+**맞힌 문제 (심화 질문 대상):**
+${
+  fastCorrectQuestions.length > 0
+    ? fastCorrectQuestions
+        .map((q) => `- ${q.category} 영역 (${q.timeSpent}초만에 해결)`)
+        .join("\n")
+    : "- 빠르게 해결한 문제 없음"
+}
+
+**틀린 문제 (개념 확인 대상):**
+${
+  incorrectQuestions.length > 0
+    ? incorrectQuestions
+        .map(
+          (q) =>
+            `- ${q.category} 영역 (${Math.floor(q.timeSpent / 60)}분 ${
+              q.timeSpent % 60
+            }초 소요)`
+        )
+        .join("\n")
+    : "- 틀린 문제 없음"
+}
+
+**오래 걸린 문제:**
+${
+  slowQuestions.length > 0
+    ? slowQuestions
+        .map(
+          (q) =>
+            `- ${q.category} 영역 (${Math.floor(q.timeSpent / 60)}분 ${
+              q.timeSpent % 60
+            }초 소요, ${q.isCorrect ? "정답" : "오답"})`
+        )
+        .join("\n")
+    : "- 오래 걸린 문제 없음"
+}
+
+**=== 인성 테스트 극단적 응답 상세 분석 ===**
+
+**협업 관련:**
+${
+  extremeByCategory.cooperate.length > 0
+    ? "극단적 응답:\n" + extremeByCategory.cooperate
+        .map(
+          (q) =>
+            `- 문항: "${q.content}"\n  선택 답변: "${getScaleLabel(
+              q.selected_answer
+            )}"\n  채점 방식: ${q.reverse_scoring ? "역채점" : "정채점"} 문항\n`
+        )
+        .join("\n")
+    : `극단적 응답 없음 (총 ${generalResponsesByCategory.cooperate.length}개 문항 응답)\n평균 응답: ${(generalResponsesByCategory.cooperate.reduce((sum, q) => sum + q.selected_answer, 0) / generalResponsesByCategory.cooperate.length).toFixed(1)}점`
+}
+
+**책임감 관련:**
+${
+  extremeByCategory.responsibility.length > 0
+    ? "극단적 응답:\n" + extremeByCategory.responsibility
+        .map(
+          (q) =>
+            `- 문항: "${q.content}"\n  선택 답변: "${getScaleLabel(
+              q.selected_answer
+            )}"\n  채점 방식: ${q.reverse_scoring ? "역채점" : "정채점"} 문항\n`
+        )
+        .join("\n")
+    : `극단적 응답 없음 (총 ${generalResponsesByCategory.responsibility.length}개 문항 응답)\n평균 응답: ${(generalResponsesByCategory.responsibility.reduce((sum, q) => sum + q.selected_answer, 0) / generalResponsesByCategory.responsibility.length).toFixed(1)}점`
+}
+
+**리더십 관련:**
+${
+  extremeByCategory.leadership.length > 0
+    ? "극단적 응답:\n" + extremeByCategory.leadership
+        .map(
+          (q) =>
+            `- 문항: "${q.content}"\n  선택 답변: "${getScaleLabel(
+              q.selected_answer
+            )}"\n  채점 방식: ${q.reverse_scoring ? "역채점" : "정채점"} 문항\n`
+        )
+        .join("\n")
+    : `극단적 응답 없음 (총 ${generalResponsesByCategory.leadership.length}개 문항 응답)\n평균 응답: ${(generalResponsesByCategory.leadership.reduce((sum, q) => sum + q.selected_answer, 0) / generalResponsesByCategory.leadership.length).toFixed(1)}점`
+}
+
+**=== 종합 점수 ===**
+- 기술 점수: ${applicantData.technicalTest.totalScore}/30점
+- 인성 점수: ${applicantData.personalityTest.scores.total}점
+- 협업: ${applicantData.personalityTest.scores.cooperate.score}점 (${
+      applicantData.personalityTest.scores.cooperate.level
+    })
+- 책임감: ${applicantData.personalityTest.scores.responsibility.score}점 (${
+      applicantData.personalityTest.scores.responsibility.level
+    })
+- 리더십: ${applicantData.personalityTest.scores.leadership.score}점 (${
+      applicantData.personalityTest.scores.leadership.level
+    })
+
+**=== 면접 질문 생성 가이드라인 ===**
+
+**기술 질문 전략:**
+1. 맞힌 문제 → 더 깊은 수준의 심화 질문 (예: "Java GC를 맞혔다면 → G1GC와 ZGC의 차이점과 선택 기준")
+2. 틀린 문제 → 기본 개념 확인 질문 (예: "XSS를 틀렸다면 → CSRF와의 차이점, SQL Injection 방어법")
+3. 오래 걸린 문제 → 문제 해결 과정과 접근법 질문
+
+**인성 질문 전략 (중요):**
+1. **극단적 응답이 있는 경우**: 실제 문항 내용을 정확히 인용하여 질문 생성
+   - 선택한 답변("전혀 그렇지 않다", "매우 그렇다" 등)을 구체적으로 언급
+   - 예시: "협업 관련 문항 '팀 프로젝트에서 의견 충돌이 생겼을 때 중재 역할을 자~주 한다'에서 '매우 그렇다'를 선택하셨는데, 실제로 의견 충돌 상황에서 중재한 구체적인 경험을 말씀해 주세요."
+
+2. **극단적 응답이 없는 경우**: 해당 카테고리의 일반적인 역량 확인 질문 생성
+   - "극단적 응답이 없으셨는데" 같은 문구는 절대 사용하지 말 것
+   - 해당 영역(협업/책임감/리더십)의 실제 경험을 묻는 구체적인 질문 생성
+   - 예시: "업무나 프로젝트에서 책임감을 발휘하여 문제를 해결한 경험이 있다면 구체적으로 말씀해 주세요."
+
+3. **질문 생성 규칙**:
+   - 극단적 응답(1점/5점)에 대한 구체적인 경험과 근거 확인
+   - 역채점 문항의 경우 해당 특성을 고려한 질문 생성
+   - 모든 질문은 구체적인 경험 사례를 요구하는 형태로 작성
+   - "~에 대해 어떻게 생각하시나요?" 같은 추상적 질문 지양
+
+다음 JSON 구조로 면접 질문을 생성해주세요. **반드시 유효한 JSON만 반환하고 백틱이나 다른 텍스트는 포함하지 마세요**:
+
+{
+  "technical": [
+    {
+      "category": "카테고리명",
+      "question": "구체적이고 맞춤형 기술 질문",
+      "purpose": "이 질문의 목적과 평가 포인트",
+      "type": "심화|개념확인|문제해결과정"
+    }
+  ],
+  "personality": [
+    {
+      "category": "협업|책임감|리더십",
+      "question": "실제 문항 내용과 선택 답변을 구체적으로 언급한 인성 질문",
+      "purpose": "이 질문의 목적",
+      "basedOn": "구체적인 문항 내용과 선택한 답변 (예: '팀워크 중시' 문항에서 '매우 그렇다' 선택)"
+    }
+  ],
+  "followUp": [
+    {
+      "type": "기술적깊이|학습능력|성장의지|상황대처",
+      "question": "종합적 판단을 위한 꼬리 질문",
+      "purpose": "이 질문의 목적"
+    }
+  ]
+}
+
+기술 질문 6-8개, 인성 질문 4-6개, 꼬리 질문 3-4개를 생성해주세요.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "당신은 효과적인 면접 질문을 설계하는 HR 전문가입니다. 반드시 유효한 JSON 형식으로만 응답하며, 백틱(```)이나 추가 텍스트는 절대 포함하지 않습니다.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: 1500,
+      temperature: 0.8,
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) return null;
+
+    // JSON 파싱을 위한 전처리
+    let cleanContent = content.trim();
+
+    // 백틱으로 감싸진 경우 제거
+    if (cleanContent.startsWith("```json")) {
+      cleanContent = cleanContent
+        .replace(/^```json\s*/, "")
+        .replace(/\s*```

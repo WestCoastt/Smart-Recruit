@@ -48,7 +48,7 @@ const EvaluationComplete: React.FC = () => {
               </div>
             </div>
             <p className="text-gray-600">
-              인사팀에서 기재하신 연락처로 다음 전형 절차를 안내드립니다.
+              기재하신 연락처로 다음 전형 절차를 안내드립니다.
             </p>
           </div>
 
