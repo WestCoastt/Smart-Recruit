@@ -12,6 +12,10 @@ import TechnicalTest from "./pages/TechnicalTest";
 import PersonalityInstructions from "./pages/PersonalityInstructions";
 import PersonalityTest from "./pages/PersonalityTest";
 import EvaluationComplete from "./pages/EvaluationComplete";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+import ApplicantList from "./pages/ApplicantList";
+import ApplicantDetail from "./pages/ApplicantDetail";
 import type { ApplicantInfo, TechnicalTestData } from "./types";
 import {
   setStoredApplicantData,
@@ -42,6 +46,13 @@ const App: React.FC = () => {
           <Route
             path="/evaluation-complete/:applicantId"
             element={<EvaluationComplete />}
+          />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/applicants" element={<ApplicantList />} />
+          <Route
+            path="/admin/applicants/:applicantId"
+            element={<ApplicantDetail />}
           />
         </Routes>
       </div>

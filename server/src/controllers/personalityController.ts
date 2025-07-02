@@ -5,10 +5,8 @@ import {
   LeadershipQuestion,
 } from "../models/PersonalityQuestion";
 import Applicant from "../models/Applicant";
-import {
-  generateAIReport,
-  generateInterviewQuestions,
-} from "../utils/aiReportGenerator";
+import { generateAIReport } from "../utils/aiReportGenerator";
+import { generateInterviewQuestions } from "../utils/questionGenerator";
 
 // 헬퍼 함수: 문제 ID로부터 카테고리 추출 (간단한 버전)
 const getQuestionCategory = (questionId: string): string => {

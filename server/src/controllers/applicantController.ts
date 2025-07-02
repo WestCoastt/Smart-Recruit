@@ -263,7 +263,7 @@ export const submitTechnicalTest = async (req: Request, res: Response) => {
     // 채점 진행
     console.log("채점 시작...");
     let score = 0;
-    const maxScore = allQuestions.length;
+    const maxScore = 30; // 총 문제 수는 항상 30문제로 고정
     const results = [];
 
     for (const question of allQuestions) {

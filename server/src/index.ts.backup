@@ -6,7 +6,6 @@ import applicantsRouter from "./routes/applicants";
 import questionsRouter from "./routes/questions";
 import adminRouter from "./routes/admin";
 import personalityRouter from "./routes/personality";
-import { createDefaultAdmin } from "./controllers/adminController";
 
 // 환경 변수 로드
 dotenv.config();
@@ -53,18 +52,17 @@ app.get("/", (req, res) => {
         getAll: "GET /api/applicants",
         getById: "GET /api/applicants/:id",
         submitTechnicalTest: "POST /api/applicants/:applicantId/technical-test",
-        submitPersonalityTest:
-          "POST /api/applicants/:applicantId/personality-test",
+        resetTechnicalTest:
+          "DELETE /api/applicants/:applicantId/technical-test",
       },
       questions: {
-        getTechnical: "GET /api/questions/technical",
-        getPersonality: "GET /api/questions/personality",
+        getTechnicalTest: "GET /api/questions/technical-test",
+        getStats: "GET /api/questions/stats",
       },
-      admin: {
-        login: "POST /api/admin/login",
-        register: "POST /api/admin/register",
-        profile: "GET /api/admin/profile",
-        verify: "GET /api/admin/verify",
+      personality: {
+        getQuestions: "GET /api/personality/questions",
+        submit: "POST /api/personality/:applicantId/submit",
+        reset: "DELETE /api/personality/:applicantId/reset",
       },
     },
   });
@@ -97,14 +95,9 @@ app.use(
 // 서버 시작
 const startServer = async () => {
   await connectDB();
-
-  // 기본 관리자 계정 생성
-  await createDefaultAdmin();
-
   app.listen(PORT, () => {
     console.log(`서버가 포트 ${PORT}에서 실행 중입니다.`);
     console.log(`API 문서: http://localhost:${PORT}`);
-    console.log("기본 관리자 계정: admin / admin123");
   });
 };
 

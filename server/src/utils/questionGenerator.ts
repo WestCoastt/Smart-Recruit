@@ -1,37 +1,4 @@
-import "dotenv/config";
-import OpenAI from "openai";
-import {
-  CooperateQuestion,
-  ResponsibilityQuestion,
-  LeadershipQuestion,
-} from "../models/PersonalityQuestion";
-import {
-  MultipleChoiceQuestion,
-  ShortAnswerQuestion,
-} from "../models/Question";
-
-// OpenAI API 키 확인
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-console.log("OpenAI API 키 존재 여부:", !!OPENAI_API_KEY);
-console.log("OpenAI API 키 길이:", OPENAI_API_KEY ? OPENAI_API_KEY.length : 0);
-
-let openai: OpenAI | null = null;
-
-if (OPENAI_API_KEY && OPENAI_API_KEY.length > 10) {
-  try {
-    openai = new OpenAI({
-      apiKey: OPENAI_API_KEY,
-    });
-    console.log("OpenAI 클라이언트 초기화 성공");
-  } catch (error) {
-    console.error("OpenAI 클라이언트 초기화 실패:", error);
-  }
-} else {
-  console.warn(
-    "OpenAI API 키가 설정되지 않았습니다. AI 리포트 기능이 작동하지 않습니다."
-  );
-}
-
+// 템플릿 기반 질문 생성 시스템 - AI API 파싱 오류 완전 해결
 interface TechnicalResult {
   totalScore: number;
   categoryScores: {
@@ -76,265 +43,6 @@ interface ApplicantData {
   personalityTest: PersonalityResult;
 }
 
-// 강력한 JSON 정리 함수 (공통 사용)
-const cleanJSON = (jsonStr: string): string => {
-  let cleaned = jsonStr
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // 제어 문자 제거
-    .replace(/\r\n/g, " ") // 윈도우 줄바꿈 제거
-    .replace(/\n/g, " ") // 모든 줄바꿈을 공백으로
-    .replace(/\r/g, " ") // 캐리지 리턴 제거
-    .replace(/\t/g, " ") // 탭을 공백으로
-    .replace(/\s+/g, " ") // 연속 공백을 하나로
-    .replace(/,\s*}/g, "}") // 마지막 콤마 제거
-    .replace(/,\s*]/g, "]") // 배열 마지막 콤마 제거
-    .trim();
-
-  // 끊어진 문자열 감지 및 복구
-  let quoteCount = 0;
-  let inString = false;
-  let result = "";
-
-  for (let i = 0; i < cleaned.length; i++) {
-    const char = cleaned[i];
-    const prevChar = i > 0 ? cleaned[i - 1] : "";
-
-    if (char === '"' && prevChar !== "\\") {
-      quoteCount++;
-      inString = !inString;
-    }
-
-    result += char;
-
-    // 문자열이 끝나지 않고 JSON 구조 문자가 나타나면 문자열 종료
-    if (
-      inString &&
-      (char === "{" ||
-        char === "}" ||
-        char === "[" ||
-        char === "]" ||
-        char === ":" ||
-        char === ",")
-    ) {
-      if (prevChar !== "\\") {
-        result = result.slice(0, -1) + '"' + char;
-        inString = false;
-        quoteCount++;
-      }
-    }
-  }
-
-  // 홀수 개의 따옴표가 있으면 마지막에 따옴표 추가
-  if (quoteCount % 2 !== 0) {
-    result += '"';
-  }
-
-  return result;
-};
-
-export async function generateAIReport(applicantData: ApplicantData) {
-  try {
-    // OpenAI 클라이언트가 초기화되지 않은 경우 기본 구조 반환
-    if (!openai) {
-      console.warn(
-        "OpenAI 클라이언트가 초기화되지 않아 기본 리포트를 반환합니다."
-      );
-      return {
-        technicalAnalysis: {
-          overallLevel: "중",
-          strengths: ["AI 분석 미사용"],
-          weaknesses: ["AI 분석 미사용"],
-          timeEfficiency: "보통",
-        },
-        personalityAnalysis: {
-          cooperation: "AI 분석 미사용",
-          responsibility: "AI 분석 미사용",
-          leadership: "AI 분석 미사용",
-          organizationFit: "AI 분석 미사용",
-          growthPotential: "AI 분석 미사용",
-        },
-        overallAssessment: {
-          recommendation: "medium",
-          mainStrengths: ["AI 분석 미사용"],
-          improvementAreas: ["AI 분석 미사용"],
-        },
-        interviewFocus: {
-          technicalPoints: ["AI 분석 미사용"],
-          personalityPoints: ["AI 분석 미사용"],
-        },
-      };
-    }
-
-    console.log("실제 AI 리포트 생성을 시작합니다...");
-
-    const prompt = `당신은 전문 HR 컨설턴트입니다. 다음 지원자의 평가 결과를 분석하여 JSON 형태로 구조화된 리포트를 작성해주세요.
-
-지원자 정보:
-- 이름: ${applicantData.name}
-- 이메일: ${applicantData.email}
-
-기술 테스트 결과:
-- 총점: ${applicantData.technicalTest.totalScore}점/30점
-- 소요시간: ${Math.floor(applicantData.technicalTest.totalTime / 60)}분 ${
-      applicantData.technicalTest.totalTime % 60
-    }초
-- 카테고리별 성과:
-${Object.entries(applicantData.technicalTest.categoryScores)
-  .map(
-    ([category, score]) =>
-      `  * ${category}: ${score.correct}/${
-        score.total
-      } (${score.percentage.toFixed(1)}%)`
-  )
-  .join("\n")}
-
-인성 테스트 결과:
-- 협업: ${applicantData.personalityTest.scores.cooperate.score}점 (${
-      applicantData.personalityTest.scores.cooperate.level
-    })
-- 책임감: ${applicantData.personalityTest.scores.responsibility.score}점 (${
-      applicantData.personalityTest.scores.responsibility.level
-    })
-- 리더십: ${applicantData.personalityTest.scores.leadership.score}점 (${
-      applicantData.personalityTest.scores.leadership.level
-    })
-- 총점: ${applicantData.personalityTest.scores.total}점
-
-다음 JSON 구조로 리포트를 작성해주세요. 반드시 유효한 JSON만 반환하고 백틱이나 다른 텍스트는 포함하지 마세요:
-
-{
-  "technicalAnalysis": {
-    "overallLevel": "전반적인 기술 수준 평가 (상/중/하)",
-    "strengths": ["강점 영역1", "강점 영역2"],
-    "weaknesses": ["약점 영역1", "약점 영역2"],
-    "timeEfficiency": "소요시간 대비 정답률 분석"
-  },
-  "personalityAnalysis": {
-    "cooperation": "협업 능력 분석",
-    "responsibility": "책임감 분석",
-    "leadership": "리더십 분석",
-    "organizationFit": "조직 적응도 예측",
-    "growthPotential": "성장 가능성 평가"
-  },
-  "overallAssessment": {
-    "recommendation": "high|medium|low",
-    "mainStrengths": ["주요 강점1", "주요 강점2", "주요 강점3"],
-    "improvementAreas": ["개선 영역1", "개선 영역2"]
-  },
-  "interviewFocus": {
-    "technicalPoints": ["기술 면접 확인 포인트1", "기술 면접 확인 포인트2"],
-    "personalityPoints": ["인성 면접 확인 포인트1", "인성 면접 확인 포인트2"]
-  }
-}`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            '당신은 전문적이고 객관적인 HR 평가 전문가입니다. 반드시 유효한 JSON 형식으로만 응답합니다. 중요한 규칙: 1) 문자열 내부에 따옴표가 있으면 반드시 \\"로 이스케이프 2) 줄바꿈 금지, 모든 텍스트는 한 줄로 3) 백틱이나 마크다운 문법 절대 금지 4) JSON 끝에 쉼표 금지 5) 모든 문자열은 완전히 닫아야 함',
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      max_tokens: 2000,
-      temperature: 0.3,
-    });
-
-    const content = response.choices[0].message.content;
-    if (!content) return null;
-
-    console.log("=== AI 면접 질문 응답 원본 ===");
-    console.log("응답 길이:", content.length);
-    console.log("응답 내용 (처음 500자):", content.substring(0, 500));
-    console.log(
-      "응답 내용 (마지막 200자):",
-      content.substring(content.length - 200)
-    );
-
-    // JSON 파싱을 위한 전처리
-    let cleanContent = content.trim();
-
-    // 백틱으로 감싸진 경우 제거
-    if (cleanContent.startsWith("```json")) {
-      cleanContent = cleanContent
-        .replace(/^```json\s*/, "")
-        .replace(/\s*```$/, "");
-    } else if (cleanContent.startsWith("```")) {
-      cleanContent = cleanContent.replace(/^```\s*/, "").replace(/\s*```$/, "");
-    }
-
-    try {
-      let parsedData;
-
-      // 1차 파싱 시도: 기본 정리
-      try {
-        let cleanedContent = cleanJSON(cleanContent);
-        parsedData = JSON.parse(cleanedContent);
-        console.log("AI 리포트 1차 파싱 성공");
-      } catch (firstParseError) {
-        console.warn(
-          "AI 리포트 1차 JSON 파싱 실패, 2차 복구 시도:",
-          firstParseError
-        );
-
-        // 2차 파싱 시도: 정규식으로 JSON 구조 추출
-        try {
-          const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            let extractedJSON = cleanJSON(jsonMatch[0]);
-            parsedData = JSON.parse(extractedJSON);
-            console.log("AI 리포트 2차 파싱 성공 (정규식 추출)");
-          } else {
-            throw new Error("유효한 JSON 구조를 찾을 수 없습니다");
-          }
-        } catch (secondParseError) {
-          console.error("AI 리포트 2차 JSON 파싱도 실패:", secondParseError);
-          throw new Error("모든 JSON 파싱 시도 실패");
-        }
-      }
-
-      console.log("AI 리포트 파싱 성공:", JSON.stringify(parsedData, null, 2));
-      return parsedData;
-    } catch (parseError) {
-      console.error("AI 리포트 JSON 파싱 완전 실패:", parseError);
-      console.error("받은 내용:", cleanContent);
-
-      // 파싱 실패 시 기본 구조 반환
-      return {
-        technicalAnalysis: {
-          overallLevel: "중",
-          strengths: ["기본 기술 역량"],
-          weaknesses: ["상세 분석 불가"],
-          timeEfficiency: "분석 중",
-        },
-        personalityAnalysis: {
-          cooperation: "분석 중",
-          responsibility: "분석 중",
-          leadership: "분석 중",
-          organizationFit: "분석 중",
-          growthPotential: "분석 중",
-        },
-        overallAssessment: {
-          recommendation: "medium",
-          mainStrengths: ["기본 역량"],
-          improvementAreas: ["상세 분석 필요"],
-        },
-        interviewFocus: {
-          technicalPoints: ["기술 역량 확인"],
-          personalityPoints: ["인성 확인"],
-        },
-      };
-    }
-  } catch (error) {
-    console.error("AI 리포트 생성 오류:", error);
-    return null;
-  }
-}
-
-// 템플릿 기반 질문 생성 시스템
 interface QuestionTemplate {
   category: string;
   questionTemplate: string;
@@ -469,63 +177,86 @@ const technicalQuestionTemplates: QuestionTemplate[] = [
       },
     },
   },
+  {
+    category: "Network",
+    questionTemplate:
+      "네트워크 문제를 {{time}}초만에 해결하셨습니다. TCP와 UDP의 차이점과 실무 적용 사례를 설명해주세요.",
+    purpose: "네트워크 프로토콜 심화 지식 확인",
+    type: "심화",
+    triggers: {
+      condition: (data) =>
+        data.technicalTest.questionDetails.some(
+          (q) => q.isCorrect && q.timeSpent <= 3 && q.category === "Network"
+        ),
+      variables: (data) => {
+        const fastNetwork = data.technicalTest.questionDetails.find(
+          (q) => q.isCorrect && q.timeSpent <= 3 && q.category === "Network"
+        );
+        return { time: fastNetwork?.timeSpent.toString() || "2" };
+      },
+    },
+  },
 ];
 
 // 인성 질문 템플릿들
 const personalityQuestionTemplates: QuestionTemplate[] = [
-  // 협업 관련
+  // 협업 관련 - 낮은 점수
   {
     category: "협업",
     questionTemplate:
-      "팀 내에서 기술적 논쟁을 이성적으로 해결하는 것에 대해 '{{answer}}'라고 답변하셨는데, 구체적인 경험을 공유해주세요.",
+      "팀 내에서 기술적 논쟁을 이성적으로 해결하는 것에 대해 소극적으로 답변하셨는데, 구체적인 경험을 공유해주세요.",
     purpose: "협업 시 갈등 해결 능력 확인",
     basedOn: "점수 기반 평가",
     triggers: {
       condition: (data) =>
         data.personalityTest.questionDetails.some(
-          (q) =>
-            q.category === "cooperate" &&
-            (q.selected_answer === 1 || q.selected_answer === 5)
+          (q) => q.category === "cooperate" && q.selected_answer === 1
         ),
-      variables: (data) => {
-        const extreme = data.personalityTest.questionDetails.find(
-          (q) =>
-            q.category === "cooperate" &&
-            (q.selected_answer === 1 || q.selected_answer === 5)
-        );
-        return {
-          answer:
-            extreme?.selected_answer === 1 ? "전혀 그렇지 않다" : "매우 그렇다",
-        };
-      },
+      variables: () => ({}),
     },
   },
   {
     category: "협업",
     questionTemplate:
-      "다양한 의견을 통합하여 최적의 해결책을 찾는 것에 대해 소극적으로 답변하셨습니다. 실제 프로젝트에서는 어떻게 접근하시나요?",
-    purpose: "의견 조율 및 리더십 확인",
+      "다양한 의견을 통합하여 최적의 해결책을 찾는 것에 대해 '전혀 그렇지 않다'라고 답변하셨습니다. 실제 프로젝트에서는 어떻게 접근하시나요?",
+    purpose: "의견 조율 및 통합 능력 확인",
     basedOn: "점수 기반 평가",
     triggers: {
-      condition: (data) => data.personalityTest.scores.cooperate.score < 60,
+      condition: (data) =>
+        data.personalityTest.questionDetails.some(
+          (q) => q.category === "cooperate" && q.selected_answer === 1
+        ),
       variables: () => ({}),
     },
   },
-  // 책임감 관련
+  // 협업 관련 - 높은 점수
+  {
+    category: "협업",
+    questionTemplate:
+      "팀워크를 매우 중시한다고 답변해주셨습니다. 팀 프로젝트에서 본인의 역할과 기여도를 구체적으로 설명해주세요.",
+    purpose: "협업 경험 및 기여도 확인",
+    basedOn: "점수 기반 평가",
+    triggers: {
+      condition: (data) => data.personalityTest.scores.cooperate.score >= 80,
+      variables: () => ({}),
+    },
+  },
+  // 책임감 관련 - 낮은 점수
   {
     category: "책임감",
     questionTemplate:
-      "코드 테스트를 철저히 수행하는 것에 대해 '{{answer}}'라고 답변하셨는데, 실제 개발 과정에서 테스트는 어떻게 진행하시나요?",
-    purpose: "테스트 중요성 인식 및 실무 경험 확인",
+      "코드 테스트를 철저히 수행하는 것에 대해 '전혀 그렇지 않다'라고 답변하셨는데, 실제 개발 과정에서 품질 관리는 어떻게 하시나요?",
+    purpose: "코드 품질 관리 방식 확인",
     basedOn: "점수 기반 평가",
     triggers: {
       condition: (data) =>
         data.personalityTest.questionDetails.some(
           (q) => q.category === "responsibility" && q.selected_answer === 1
         ),
-      variables: (data) => ({ answer: "전혀 그렇지 않다" }),
+      variables: () => ({}),
     },
   },
+  // 책임감 관련 - 높은 점수
   {
     category: "책임감",
     questionTemplate:
@@ -540,7 +271,33 @@ const personalityQuestionTemplates: QuestionTemplate[] = [
       variables: () => ({}),
     },
   },
-  // 리더십 관련
+  {
+    category: "책임감",
+    questionTemplate:
+      "팀의 목표를 위해 개인 작업을 조정한다고 하셨는데, 구체적인 사례를 들어 설명해주세요.",
+    purpose: "팀 목표 우선순위 및 조율 능력 확인",
+    basedOn: "점수 기반 평가",
+    triggers: {
+      condition: (data) =>
+        data.personalityTest.questionDetails.some(
+          (q) => q.category === "responsibility" && q.selected_answer === 5
+        ),
+      variables: () => ({}),
+    },
+  },
+  // 리더십 관련 - 낮은 점수
+  {
+    category: "리더십",
+    questionTemplate:
+      "기술적 방향 제시보다는 수동적으로 따르는 편이라고 답변하셨는데, 본인만의 기술적 판단 기준이 있다면 무엇인가요?",
+    purpose: "기술적 판단력 및 성장 가능성 확인",
+    basedOn: "점수 기반 평가",
+    triggers: {
+      condition: (data) => data.personalityTest.scores.leadership.score < 60,
+      variables: () => ({}),
+    },
+  },
+  // 리더십 관련 - 높은 점수
   {
     category: "리더십",
     questionTemplate:
@@ -552,17 +309,6 @@ const personalityQuestionTemplates: QuestionTemplate[] = [
         data.personalityTest.questionDetails.some(
           (q) => q.category === "leadership" && q.selected_answer === 5
         ),
-      variables: () => ({}),
-    },
-  },
-  {
-    category: "리더십",
-    questionTemplate:
-      "기술적 방향 제시보다는 수동적으로 따르는 편이라고 답변하셨는데, 본인만의 기술적 판단 기준이 있다면 무엇인가요?",
-    purpose: "기술적 판단력 및 성장 가능성 확인",
-    basedOn: "점수 기반 평가",
-    triggers: {
-      condition: (data) => data.personalityTest.scores.leadership.score < 60,
       variables: () => ({}),
     },
   },
@@ -627,10 +373,15 @@ const processTemplate = (
   return processed;
 };
 
-// 새로운 면접 질문 생성 함수
+// 메인 질문 생성 함수
 export async function generateInterviewQuestions(applicantData: ApplicantData) {
   try {
     console.log("템플릿 기반 면접 질문 생성 시작");
+    console.log("지원자 데이터:", {
+      name: applicantData.name,
+      technicalScore: applicantData.technicalTest.totalScore,
+      personalityScore: applicantData.personalityTest.scores.total,
+    });
 
     const result = {
       technical: [] as any[],
@@ -651,6 +402,13 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
           purpose: template.purpose,
           type: template.type || "개념확인",
         });
+
+        console.log(
+          `기술 질문 추가: ${template.category} - ${question.substring(
+            0,
+            50
+          )}...`
+        );
       }
     }
 
@@ -667,6 +425,13 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
           purpose: template.purpose,
           basedOn: template.basedOn || "일반적 평가",
         });
+
+        console.log(
+          `인성 질문 추가: ${template.category} - ${question.substring(
+            0,
+            50
+          )}...`
+        );
       }
     }
 
@@ -682,6 +447,10 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
           question: question,
           purpose: template.purpose,
         });
+
+        console.log(
+          `후속 질문 추가: ${template.type} - ${question.substring(0, 50)}...`
+        );
       }
     }
 
@@ -694,6 +463,7 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
         purpose: "기술 역량 종합 확인",
         type: "개념확인",
       });
+      console.log("기본 기술 질문 추가");
     }
 
     if (result.personality.length === 0) {
@@ -703,6 +473,7 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
         purpose: "협업 능력 확인",
         basedOn: "일반적 평가",
       });
+      console.log("기본 인성 질문 추가");
     }
 
     if (result.followUp.length === 0) {
@@ -711,6 +482,7 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
         question: "마지막으로 본인의 강점과 개발자로서의 목표를 말씀해주세요.",
         purpose: "종합적 역량 확인",
       });
+      console.log("기본 후속 질문 추가");
     }
 
     console.log("템플릿 기반 면접 질문 생성 완료:", {
