@@ -14,10 +14,14 @@ import {
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 console.log("OpenAI API 키 존재 여부:", !!OPENAI_API_KEY);
 console.log("OpenAI API 키 길이:", OPENAI_API_KEY ? OPENAI_API_KEY.length : 0);
+console.log(
+  "OpenAI API 키 첫 10자:",
+  OPENAI_API_KEY ? OPENAI_API_KEY.substring(0, 10) : "없음"
+);
 
 let openai: OpenAI | null = null;
 
-if (OPENAI_API_KEY && OPENAI_API_KEY.length > 10) {
+if (OPENAI_API_KEY && OPENAI_API_KEY.length > 5) {
   try {
     openai = new OpenAI({
       apiKey: OPENAI_API_KEY,
@@ -30,6 +34,7 @@ if (OPENAI_API_KEY && OPENAI_API_KEY.length > 10) {
   console.warn(
     "OpenAI API 키가 설정되지 않았습니다. AI 리포트 기능이 작동하지 않습니다."
   );
+  console.warn("현재 OPENAI_API_KEY 값:", OPENAI_API_KEY);
 }
 
 interface TechnicalResult {
@@ -76,59 +81,154 @@ interface ApplicantData {
   personalityTest: PersonalityResult;
 }
 
-// 강력한 JSON 정리 함수 (공통 사용)
+// 기존 cleanJSON 함수를 더 안전하게 수정
 const cleanJSON = (jsonStr: string): string => {
+  // 기본적인 정리만 수행
   let cleaned = jsonStr
     .replace(/[\u0000-\u001F\u007F-\u009F]/g, "") // 제어 문자 제거
-    .replace(/\r\n/g, " ") // 윈도우 줄바꿈 제거
-    .replace(/\n/g, " ") // 모든 줄바꿈을 공백으로
-    .replace(/\r/g, " ") // 캐리지 리턴 제거
-    .replace(/\t/g, " ") // 탭을 공백으로
-    .replace(/\s+/g, " ") // 연속 공백을 하나로
+    .replace(/\r\n/g, "\n") // 윈도우 줄바꿈 정규화
+    .replace(/\r/g, "\n") // 맥 줄바꿈 정규화
     .replace(/,\s*}/g, "}") // 마지막 콤마 제거
     .replace(/,\s*]/g, "]") // 배열 마지막 콤마 제거
     .trim();
 
-  // 끊어진 문자열 감지 및 복구
-  let quoteCount = 0;
-  let inString = false;
-  let result = "";
+  return cleaned;
+};
 
-  for (let i = 0; i < cleaned.length; i++) {
-    const char = cleaned[i];
-    const prevChar = i > 0 ? cleaned[i - 1] : "";
+// 더 안전한 JSON 추출 함수 추가
+const extractJSON = (text: string): string => {
+  // 1. 먼저 ```json 코드 블록에서 추출 시도
+  const codeBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
 
-    if (char === '"' && prevChar !== "\\") {
-      quoteCount++;
-      inString = !inString;
-    }
+  // 2. 일반 코드 블록에서 추출 시도
+  const generalCodeMatch = text.match(/```\s*([\s\S]*?)\s*```/);
+  if (generalCodeMatch) {
+    return generalCodeMatch[1].trim();
+  }
 
-    result += char;
+  // 3. 중괄호로 둘러싸인 JSON 구조 추출
+  const braceMatch = text.match(/\{[\s\S]*\}/);
+  if (braceMatch) {
+    return braceMatch[0];
+  }
 
-    // 문자열이 끝나지 않고 JSON 구조 문자가 나타나면 문자열 종료
-    if (
-      inString &&
-      (char === "{" ||
-        char === "}" ||
-        char === "[" ||
-        char === "]" ||
-        char === ":" ||
-        char === ",")
-    ) {
-      if (prevChar !== "\\") {
-        result = result.slice(0, -1) + '"' + char;
-        inString = false;
-        quoteCount++;
+  // 4. 그대로 반환
+  return text;
+};
+
+// 수동 파싱 함수 - JSON 파싱 실패 시 텍스트에서 주요 내용 추출
+const attemptManualParsing = (text: string): any => {
+  try {
+    console.log("수동 파싱 시도 시작...");
+
+    // 기본 구조 생성
+    const result: any = {
+      technicalAnalysis: {
+        overallLevel: "중",
+        detailedAssessment: "",
+        strengths: "",
+        weaknesses: "",
+        timeEfficiency: "",
+      },
+      personalityAnalysis: {
+        cooperation: "",
+        responsibility: "",
+        leadership: "",
+        organizationFit: "",
+        growthPotential: "",
+      },
+      overallAssessment: {
+        recommendation: "medium",
+        comprehensiveEvaluation: "",
+        keyStrengths: "",
+        developmentAreas: "",
+      },
+      interviewFocus: {
+        technicalQuestions: "",
+        personalityQuestions: "",
+      },
+    };
+
+    // 정규식을 사용해 주요 내용 추출 시도
+    const patterns = {
+      overallLevel: /"overallLevel":\s*"([^"]+)"/,
+      detailedAssessment: /"detailedAssessment":\s*"([^"]+)"/,
+      strengths: /"strengths":\s*"([^"]+)"/,
+      weaknesses: /"weaknesses":\s*"([^"]+)"/,
+      timeEfficiency: /"timeEfficiency":\s*"([^"]+)"/,
+      cooperation: /"cooperation":\s*"([^"]+)"/,
+      responsibility: /"responsibility":\s*"([^"]+)"/,
+      leadership: /"leadership":\s*"([^"]+)"/,
+      organizationFit: /"organizationFit":\s*"([^"]+)"/,
+      growthPotential: /"growthPotential":\s*"([^"]+)"/,
+      recommendation: /"recommendation":\s*"([^"]+)"/,
+      comprehensiveEvaluation: /"comprehensiveEvaluation":\s*"([^"]+)"/,
+      keyStrengths: /"keyStrengths":\s*"([^"]+)"/,
+      developmentAreas: /"developmentAreas":\s*"([^"]+)"/,
+      technicalQuestions: /"technicalQuestions":\s*"([^"]+)"/,
+      personalityQuestions: /"personalityQuestions":\s*"([^"]+)"/,
+    };
+
+    let extractedCount = 0;
+
+    // 각 패턴을 시도하여 내용 추출
+    Object.entries(patterns).forEach(([key, pattern]) => {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const value = match[1].replace(/\\"/g, '"'); // 이스케이프된 따옴표 복원
+
+        // 적절한 위치에 값 할당
+        if (
+          key === "overallLevel" ||
+          key === "detailedAssessment" ||
+          key === "strengths" ||
+          key === "weaknesses" ||
+          key === "timeEfficiency"
+        ) {
+          result.technicalAnalysis[key] = value;
+        } else if (
+          key === "cooperation" ||
+          key === "responsibility" ||
+          key === "leadership" ||
+          key === "organizationFit" ||
+          key === "growthPotential"
+        ) {
+          result.personalityAnalysis[key] = value;
+        } else if (
+          key === "recommendation" ||
+          key === "comprehensiveEvaluation" ||
+          key === "keyStrengths" ||
+          key === "developmentAreas"
+        ) {
+          result.overallAssessment[key] = value;
+        } else if (
+          key === "technicalQuestions" ||
+          key === "personalityQuestions"
+        ) {
+          result.interviewFocus[key] = value;
+        }
+
+        extractedCount++;
+        console.log(`수동 파싱 성공: ${key} = ${value.substring(0, 50)}...`);
       }
+    });
+
+    console.log(`수동 파싱 완료: ${extractedCount}개 필드 추출`);
+
+    // 최소 5개 이상의 필드가 추출되었다면 성공으로 간주
+    if (extractedCount >= 5) {
+      return result;
+    } else {
+      console.log("수동 파싱 실패: 추출된 필드가 너무 적음");
+      return null;
     }
+  } catch (error) {
+    console.error("수동 파싱 중 오류:", error);
+    return null;
   }
-
-  // 홀수 개의 따옴표가 있으면 마지막에 따옴표 추가
-  if (quoteCount % 2 !== 0) {
-    result += '"';
-  }
-
-  return result;
 };
 
 export async function generateAIReport(applicantData: ApplicantData) {
@@ -141,54 +241,115 @@ export async function generateAIReport(applicantData: ApplicantData) {
       return {
         technicalAnalysis: {
           overallLevel: "중",
-          strengths: ["AI 분석 미사용"],
-          weaknesses: ["AI 분석 미사용"],
-          timeEfficiency: "보통",
+          detailedAssessment:
+            "AI 분석 서비스가 현재 이용 불가한 상태입니다. 기술 테스트 결과를 바탕으로 수동 검토가 필요합니다.",
+          strengths:
+            "기본적인 기술 역량을 보유하고 있는 것으로 보이나, 구체적인 강점 분석을 위해서는 AI 서비스 복구 후 재평가가 필요합니다.",
+          weaknesses:
+            "상세한 약점 분석이 불가능한 상황입니다. 면접을 통한 직접적인 평가가 필요해 보입니다.",
+          timeEfficiency:
+            "시간 효율성에 대한 분석이 현재 불가능한 상태입니다. AI 서비스 복구 후 재분석을 권장합니다.",
         },
         personalityAnalysis: {
-          cooperation: "AI 분석 미사용",
-          responsibility: "AI 분석 미사용",
-          leadership: "AI 분석 미사용",
-          organizationFit: "AI 분석 미사용",
-          growthPotential: "AI 분석 미사용",
+          cooperation:
+            "협업 능력에 대한 상세 분석이 현재 불가능합니다. AI 서비스 복구 후 재평가가 필요합니다.",
+          responsibility:
+            "책임감에 대한 구체적 평가가 필요합니다. 면접 단계에서 직접 확인하는 것을 권장합니다.",
+          leadership:
+            "리더십 특성에 대한 추가 분석이 요구됩니다. AI 서비스 복구 후 재평가가 필요합니다.",
+          organizationFit:
+            "조직 적응도 예측을 위해서는 면접 단계에서의 추가 평가가 필요해 보입니다.",
+          growthPotential:
+            "성장 가능성에 대한 종합적 판단을 위해 AI 서비스 복구 후 재분석이 필요합니다.",
         },
         overallAssessment: {
           recommendation: "medium",
-          mainStrengths: ["AI 분석 미사용"],
-          improvementAreas: ["AI 분석 미사용"],
+          comprehensiveEvaluation:
+            "현재 AI 분석 시스템에 일시적 문제가 발생하여 완전한 종합 평가를 제공할 수 없습니다. 기본 데이터는 확인되었으나, 보다 정확한 평가를 위해서는 면접 단계에서의 직접 평가가 필요해 보입니다.",
+          keyStrengths:
+            "구체적인 강점 분석을 위해서는 AI 서비스 복구 후 재평가가 필요한 상황입니다.",
+          developmentAreas:
+            "개발이 필요한 영역에 대한 상세 분석이 현재 불가능하여, 면접을 통한 직접 확인이 필요해 보입니다.",
         },
         interviewFocus: {
-          technicalPoints: ["AI 분석 미사용"],
-          personalityPoints: ["AI 분석 미사용"],
+          technicalQuestions:
+            "기술적 역량을 종합적으로 확인할 수 있는 질문들을 준비하여 면접에서 직접 평가하는 것이 필요해 보입니다.",
+          personalityQuestions:
+            "인성적 특성과 조직 적합성을 파악할 수 있는 구체적인 질문들을 통해 면접에서 심화 평가가 필요합니다.",
         },
       };
     }
 
     console.log("실제 AI 리포트 생성을 시작합니다...");
+    console.log("전달받은 데이터:", JSON.stringify(applicantData, null, 2));
 
-    const prompt = `당신은 전문 HR 컨설턴트입니다. 다음 지원자의 평가 결과를 분석하여 JSON 형태로 구조화된 리포트를 작성해주세요.
+    // 카테고리별 상세 분석을 위한 데이터 준비
+    const categoryAnalysis = Object.entries(
+      applicantData.technicalTest.categoryScores
+    ).map(([category, score]) => {
+      const correctProblems =
+        applicantData.technicalTest.questionDetails.filter(
+          (q) => q.category === category && q.isCorrect
+        ).length;
+      const wrongProblems = applicantData.technicalTest.questionDetails.filter(
+        (q) => q.category === category && !q.isCorrect
+      ).length;
+      const avgTime =
+        applicantData.technicalTest.questionDetails
+          .filter((q) => q.category === category)
+          .reduce((sum, q) => sum + q.timeSpent, 0) /
+        (correctProblems + wrongProblems || 1);
+
+      return {
+        category,
+        correct: correctProblems,
+        wrong: wrongProblems,
+        total: score.total,
+        percentage: score.percentage,
+        avgTime: Math.round(avgTime),
+      };
+    });
+
+    const strongCategories = categoryAnalysis.filter((c) => c.percentage >= 70);
+    const weakCategories = categoryAnalysis.filter((c) => c.percentage < 50);
+    const moderateCategories = categoryAnalysis.filter(
+      (c) => c.percentage >= 50 && c.percentage < 70
+    );
+
+    const prompt = `당신은 전문 HR 컨설턴트입니다. 다음 지원자의 평가 결과를 구체적인 근거를 바탕으로 분석하여 자연스러운 서술형 보고서를 작성해주세요.
 
 지원자 정보:
 - 이름: ${applicantData.name}
 - 이메일: ${applicantData.email}
 
-기술 테스트 결과:
-- 총점: ${applicantData.technicalTest.totalScore}점/30점
-- 소요시간: ${Math.floor(applicantData.technicalTest.totalTime / 60)}분 ${
+기술 테스트 상세 결과:
+- 전체 성과: ${applicantData.technicalTest.totalScore}점/30점 (${(
+      (applicantData.technicalTest.totalScore / 30) *
+      100
+    ).toFixed(1)}%)
+- 총 소요시간: ${Math.floor(applicantData.technicalTest.totalTime / 60)}분 ${
       applicantData.technicalTest.totalTime % 60
     }초
-- 카테고리별 성과:
-${Object.entries(applicantData.technicalTest.categoryScores)
+- 문제당 평균 시간: ${Math.round(applicantData.technicalTest.totalTime / 30)}초
+
+카테고리별 세부 분석:
+${categoryAnalysis
   .map(
-    ([category, score]) =>
-      `  * ${category}: ${score.correct}/${
-        score.total
-      } (${score.percentage.toFixed(1)}%)`
+    (cat) =>
+      `- ${cat.category}: ${cat.correct}개 정답, ${
+        cat.wrong
+      }개 오답 (정답률 ${cat.percentage.toFixed(1)}%, 평균 ${
+        cat.avgTime
+      }초 소요)`
   )
   .join("\n")}
 
-인성 테스트 결과:
-- 협업: ${applicantData.personalityTest.scores.cooperate.score}점 (${
+강점 영역: ${strongCategories.map((c) => c.category).join(", ") || "없음"}
+약점 영역: ${weakCategories.map((c) => c.category).join(", ") || "없음"}
+보통 영역: ${moderateCategories.map((c) => c.category).join(", ") || "없음"}
+
+인성 테스트 상세 결과:
+- 협업 능력: ${applicantData.personalityTest.scores.cooperate.score}점 (${
       applicantData.personalityTest.scores.cooperate.level
     })
 - 책임감: ${applicantData.personalityTest.scores.responsibility.score}점 (${
@@ -197,140 +358,295 @@ ${Object.entries(applicantData.technicalTest.categoryScores)
 - 리더십: ${applicantData.personalityTest.scores.leadership.score}점 (${
       applicantData.personalityTest.scores.leadership.level
     })
-- 총점: ${applicantData.personalityTest.scores.total}점
+- 인성 총점: ${applicantData.personalityTest.scores.total}점
 
-다음 JSON 구조로 리포트를 작성해주세요. 반드시 유효한 JSON만 반환하고 백틱이나 다른 텍스트는 포함하지 마세요:
+다음 JSON 구조로 구체적이고 자연스러운 서술형 리포트를 작성해주세요. 
+
+**중요: 모든 분석 내용은 반드시 하나의 긴 문자열로 작성해야 합니다. 절대 배열이나 객체로 만들지 마세요.**
+
+각 분석은 위의 구체적인 데이터를 근거로 하여 "~합니다", "~해 보입니다", "~필요해 보입니다" 등의 자연스러운 문체로 2-3문장 이상 길게 서술해주세요:
 
 {
   "technicalAnalysis": {
-    "overallLevel": "전반적인 기술 수준 평가 (상/중/하)",
-    "strengths": ["강점 영역1", "강점 영역2"],
-    "weaknesses": ["약점 영역1", "약점 영역2"],
-    "timeEfficiency": "소요시간 대비 정답률 분석"
+    "overallLevel": "상|중|하",
+    "detailedAssessment": "전반적인 기술 수준에 대한 구체적 근거 기반 서술형 평가를 하나의 긴 문자열로 작성 (정답률, 소요시간, 카테고리별 성과를 구체적으로 언급하며 2-3문장 이상)",
+    "strengths": "강점 영역에 대한 구체적 분석을 하나의 긴 문자열로 작성 (어떤 카테고리에서 몇 개 정답을 맞혔는지, 시간 효율성은 어땠는지 등 구체적 근거 포함하여 자연스럽게 서술)",
+    "weaknesses": "약점 영역에 대한 구체적 분석을 하나의 긴 문자열로 작성 (어떤 카테고리에서 어려움을 겪었는지, 시간 관리는 어땠는지 등 구체적 근거 포함하여 자연스럽게 서술)",
+    "timeEfficiency": "시간 효율성에 대한 구체적 분석을 하나의 긴 문자열로 작성 (총 소요시간, 문제당 평균 시간, 카테고리별 시간 분배 등을 근거로 한 자연스러운 서술)"
   },
   "personalityAnalysis": {
-    "cooperation": "협업 능력 분석",
-    "responsibility": "책임감 분석",
-    "leadership": "리더십 분석",
-    "organizationFit": "조직 적응도 예측",
-    "growthPotential": "성장 가능성 평가"
+    "cooperation": "협업 능력에 대한 구체적 분석을 하나의 긴 문자열로 작성 (점수와 레벨을 근거로 한 자연스러운 서술형 평가)",
+    "responsibility": "책임감에 대한 구체적 분석을 하나의 긴 문자열로 작성 (점수와 레벨을 근거로 한 자연스러운 서술형 평가)",
+    "leadership": "리더십에 대한 구체적 분석을 하나의 긴 문자열로 작성 (점수와 레벨을 근거로 한 자연스러운 서술형 평가)",
+    "organizationFit": "조직 적응도에 대한 종합적 예측을 하나의 긴 문자열로 작성 (인성 테스트 결과를 종합하여 조직 내에서의 적응 가능성을 자연스럽게 서술)",
+    "growthPotential": "성장 가능성에 대한 평가를 하나의 긴 문자열로 작성 (기술적 역량과 인성적 특성을 종합하여 향후 발전 가능성을 자연스럽게 서술)"
   },
   "overallAssessment": {
     "recommendation": "high|medium|low",
-    "mainStrengths": ["주요 강점1", "주요 강점2", "주요 강점3"],
-    "improvementAreas": ["개선 영역1", "개선 영역2"]
+    "comprehensiveEvaluation": "종합 평가를 하나의 긴 문자열로 작성 (기술 테스트와 인성 테스트 결과를 모두 고려한 전체적인 평가를 구체적 근거와 함께 자연스럽게 길게 서술)",
+    "keyStrengths": "핵심 강점을 하나의 긴 문자열로 작성 (가장 두드러진 강점들을 구체적 근거와 함께 자연스럽게 서술)",
+    "developmentAreas": "개발 필요 영역을 하나의 긴 문자열로 작성 (개선이 필요한 부분들을 구체적 근거와 함께 자연스럽게 서술)"
   },
   "interviewFocus": {
-    "technicalPoints": ["기술 면접 확인 포인트1", "기술 면접 확인 포인트2"],
-    "personalityPoints": ["인성 면접 확인 포인트1", "인성 면접 확인 포인트2"]
+    "technicalQuestions": "기술 면접에서 확인해야 할 포인트들을 하나의 긴 문자열로 작성 (약점 영역이나 애매한 부분에 대해 구체적으로 질문할 내용을 자연스럽게 서술)",
+    "personalityQuestions": "인성 면접에서 확인해야 할 포인트들을 하나의 긴 문자열로 작성 (인성 테스트 결과를 바탕으로 더 깊이 확인할 내용을 자연스럽게 서술)"
   }
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            '당신은 전문적이고 객관적인 HR 평가 전문가입니다. 반드시 유효한 JSON 형식으로만 응답합니다. 중요한 규칙: 1) 문자열 내부에 따옴표가 있으면 반드시 \\"로 이스케이프 2) 줄바꿈 금지, 모든 텍스트는 한 줄로 3) 백틱이나 마크다운 문법 절대 금지 4) JSON 끝에 쉼표 금지 5) 모든 문자열은 완전히 닫아야 함',
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      max_tokens: 2000,
-      temperature: 0.3,
-    });
-
-    const content = response.choices[0].message.content;
-    if (!content) return null;
-
-    console.log("=== AI 면접 질문 응답 원본 ===");
-    console.log("응답 길이:", content.length);
-    console.log("응답 내용 (처음 500자):", content.substring(0, 500));
-    console.log(
-      "응답 내용 (마지막 200자):",
-      content.substring(content.length - 200)
-    );
-
-    // JSON 파싱을 위한 전처리
-    let cleanContent = content.trim();
-
-    // 백틱으로 감싸진 경우 제거
-    if (cleanContent.startsWith("```json")) {
-      cleanContent = cleanContent
-        .replace(/^```json\s*/, "")
-        .replace(/\s*```$/, "");
-    } else if (cleanContent.startsWith("```")) {
-      cleanContent = cleanContent.replace(/^```\s*/, "").replace(/\s*```$/, "");
-    }
+    console.log("=== OpenAI API 호출 시작 ===");
+    console.log("프롬프트 길이:", prompt.length);
+    console.log("카테고리 분석 결과:", categoryAnalysis);
 
     try {
-      let parsedData;
+      console.log("OpenAI 클라이언트 상태 확인:", !!openai);
+      console.log("API 요청 전 상태 확인 완료");
 
-      // 1차 파싱 시도: 기본 정리
-      try {
-        let cleanedContent = cleanJSON(cleanContent);
-        parsedData = JSON.parse(cleanedContent);
-        console.log("AI 리포트 1차 파싱 성공");
-      } catch (firstParseError) {
-        console.warn(
-          "AI 리포트 1차 JSON 파싱 실패, 2차 복구 시도:",
-          firstParseError
-        );
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              '당신은 전문적이고 객관적인 HR 평가 전문가입니다. 반드시 유효한 JSON 형식으로만 응답합니다. 중요한 규칙: 1) 모든 분석 내용은 반드시 하나의 긴 문자열로 작성 (배열이나 객체 절대 금지) 2) 문자열 내부에 따옴표가 있으면 반드시 \\"로 이스케이프 3) 줄바꿈 금지, 모든 텍스트는 한 줄로 4) 백틱이나 마크다운 문법 절대 금지 5) JSON 끝에 쉼표 금지 6) 모든 문자열은 완전히 닫아야 함',
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 2000,
+        temperature: 0.3,
+      });
 
-        // 2차 파싱 시도: 정규식으로 JSON 구조 추출
-        try {
-          const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            let extractedJSON = cleanJSON(jsonMatch[0]);
-            parsedData = JSON.parse(extractedJSON);
-            console.log("AI 리포트 2차 파싱 성공 (정규식 추출)");
-          } else {
-            throw new Error("유효한 JSON 구조를 찾을 수 없습니다");
-          }
-        } catch (secondParseError) {
-          console.error("AI 리포트 2차 JSON 파싱도 실패:", secondParseError);
-          throw new Error("모든 JSON 파싱 시도 실패");
-        }
+      console.log("=== OpenAI API 호출 완료 ===");
+      console.log("응답 상태:", response.choices[0].finish_reason);
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        console.error("OpenAI 응답 내용이 비어있습니다.");
+        throw new Error("OpenAI 응답이 비어있음");
       }
 
-      console.log("AI 리포트 파싱 성공:", JSON.stringify(parsedData, null, 2));
-      return parsedData;
-    } catch (parseError) {
-      console.error("AI 리포트 JSON 파싱 완전 실패:", parseError);
-      console.error("받은 내용:", cleanContent);
+      console.log("=== AI 리포트 응답 원본 ===");
+      console.log("응답 길이:", content.length);
+      console.log("응답 내용 (처음 500자):", content.substring(0, 500));
+      console.log(
+        "응답 내용 (마지막 200자):",
+        content.substring(content.length - 200)
+      );
 
-      // 파싱 실패 시 기본 구조 반환
-      return {
-        technicalAnalysis: {
-          overallLevel: "중",
-          strengths: ["기본 기술 역량"],
-          weaknesses: ["상세 분석 불가"],
-          timeEfficiency: "분석 중",
-        },
-        personalityAnalysis: {
-          cooperation: "분석 중",
-          responsibility: "분석 중",
-          leadership: "분석 중",
-          organizationFit: "분석 중",
-          growthPotential: "분석 중",
-        },
-        overallAssessment: {
-          recommendation: "medium",
-          mainStrengths: ["기본 역량"],
-          improvementAreas: ["상세 분석 필요"],
-        },
-        interviewFocus: {
-          technicalPoints: ["기술 역량 확인"],
-          personalityPoints: ["인성 확인"],
-        },
-      };
+      // JSON 파싱을 위한 전처리
+      let cleanContent = content.trim();
+
+      // 백틱으로 감싸진 경우 제거
+      if (cleanContent.startsWith("```json")) {
+        cleanContent = cleanContent
+          .replace(/^```json\s*/, "")
+          .replace(/\s*```$/, "");
+      } else if (cleanContent.startsWith("```")) {
+        cleanContent = cleanContent
+          .replace(/^```\s*/, "")
+          .replace(/\s*```$/, "");
+      }
+
+      try {
+        let parsedData;
+
+        // 1차 파싱 시도: 응답에서 JSON 추출
+        try {
+          const extractedJSON = extractJSON(cleanContent);
+          const cleanedJSON = cleanJSON(extractedJSON);
+          parsedData = JSON.parse(cleanedJSON);
+          console.log("AI 리포트 1차 파싱 성공");
+        } catch (firstParseError) {
+          console.warn(
+            "AI 리포트 1차 JSON 파싱 실패, 2차 복구 시도:",
+            firstParseError
+          );
+
+          // 2차 파싱 시도: 더 관대한 JSON 파싱
+          try {
+            // 응답에서 JSON 부분만 추출
+            const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              // 기본적인 정리만 수행
+              let simpleClean = jsonMatch[0]
+                .replace(/,\s*}/g, "}") // 마지막 콤마 제거
+                .replace(/,\s*]/g, "]") // 배열 마지막 콤마 제거
+                .trim();
+
+              parsedData = JSON.parse(simpleClean);
+              console.log("AI 리포트 2차 파싱 성공 (간단한 정리)");
+            } else {
+              throw new Error("유효한 JSON 구조를 찾을 수 없습니다");
+            }
+          } catch (secondParseError) {
+            console.error("AI 리포트 2차 JSON 파싱도 실패:", secondParseError);
+
+            // 3차 시도: 매우 관대한 파싱 (JSON5 스타일)
+            try {
+              // 응답 내용을 그대로 로그로 출력
+              console.log("=== 파싱 실패한 원본 응답 ===");
+              console.log("응답 길이:", cleanContent.length);
+              console.log("응답 내용:", cleanContent);
+              console.log("=== 원본 응답 끝 ===");
+
+              // 4차 시도: 수동 텍스트 파싱으로 주요 내용 추출
+              const manualParsedData = attemptManualParsing(cleanContent);
+              if (manualParsedData) {
+                console.log("AI 리포트 4차 파싱 성공 (수동 파싱)");
+                parsedData = manualParsedData;
+              } else {
+                throw new Error("JSON 파싱 완전 실패 - 수동 분석 필요");
+              }
+            } catch (thirdParseError) {
+              console.error("AI 리포트 3차 JSON 파싱도 실패:", thirdParseError);
+              throw new Error("모든 JSON 파싱 시도 실패");
+            }
+          }
+        }
+
+        console.log(
+          "AI 리포트 파싱 성공:",
+          JSON.stringify(parsedData, null, 2)
+        );
+
+        // 데이터 구조 정규화: 배열을 문자열로 변환
+        if (parsedData.technicalAnalysis) {
+          if (Array.isArray(parsedData.technicalAnalysis.strengths)) {
+            parsedData.technicalAnalysis.strengths =
+              parsedData.technicalAnalysis.strengths.join(" ");
+            console.log("technicalAnalysis.strengths 배열을 문자열로 변환");
+          }
+          if (Array.isArray(parsedData.technicalAnalysis.weaknesses)) {
+            parsedData.technicalAnalysis.weaknesses =
+              parsedData.technicalAnalysis.weaknesses.join(" ");
+            console.log("technicalAnalysis.weaknesses 배열을 문자열로 변환");
+          }
+        }
+
+        if (parsedData.overallAssessment) {
+          if (Array.isArray(parsedData.overallAssessment.keyStrengths)) {
+            parsedData.overallAssessment.keyStrengths =
+              parsedData.overallAssessment.keyStrengths.join(" ");
+            console.log("overallAssessment.keyStrengths 배열을 문자열로 변환");
+          }
+          if (Array.isArray(parsedData.overallAssessment.developmentAreas)) {
+            parsedData.overallAssessment.developmentAreas =
+              parsedData.overallAssessment.developmentAreas.join(" ");
+            console.log(
+              "overallAssessment.developmentAreas 배열을 문자열로 변환"
+            );
+          }
+        }
+
+        if (parsedData.interviewFocus) {
+          if (Array.isArray(parsedData.interviewFocus.technicalQuestions)) {
+            parsedData.interviewFocus.technicalQuestions =
+              parsedData.interviewFocus.technicalQuestions.join(" ");
+            console.log(
+              "interviewFocus.technicalQuestions 배열을 문자열로 변환"
+            );
+          }
+          if (Array.isArray(parsedData.interviewFocus.personalityQuestions)) {
+            parsedData.interviewFocus.personalityQuestions =
+              parsedData.interviewFocus.personalityQuestions.join(" ");
+            console.log(
+              "interviewFocus.personalityQuestions 배열을 문자열로 변환"
+            );
+          }
+        }
+
+        // 최종 데이터 타입 확인
+        console.log("=== 최종 데이터 타입 확인 ===");
+        if (parsedData.technicalAnalysis) {
+          console.log(
+            "technicalAnalysis.strengths 타입:",
+            typeof parsedData.technicalAnalysis.strengths
+          );
+          console.log(
+            "technicalAnalysis.weaknesses 타입:",
+            typeof parsedData.technicalAnalysis.weaknesses
+          );
+        }
+        if (parsedData.overallAssessment) {
+          console.log(
+            "overallAssessment.keyStrengths 타입:",
+            typeof parsedData.overallAssessment.keyStrengths
+          );
+          console.log(
+            "overallAssessment.developmentAreas 타입:",
+            typeof parsedData.overallAssessment.developmentAreas
+          );
+        }
+        if (parsedData.interviewFocus) {
+          console.log(
+            "interviewFocus.technicalQuestions 타입:",
+            typeof parsedData.interviewFocus.technicalQuestions
+          );
+          console.log(
+            "interviewFocus.personalityQuestions 타입:",
+            typeof parsedData.interviewFocus.personalityQuestions
+          );
+        }
+
+        return parsedData;
+      } catch (parseError) {
+        console.error("AI 리포트 JSON 파싱 완전 실패:", parseError);
+        console.error("받은 내용:", cleanContent);
+        throw parseError;
+      }
+    } catch (apiError) {
+      console.error("=== OpenAI API 호출 실패 ===");
+      console.error("오류 타입:", typeof apiError);
+      console.error("오류 메시지:", (apiError as any).message);
+      console.error("오류 스택:", (apiError as any).stack);
+      if ((apiError as any).response) {
+        console.error("API 응답 상태:", (apiError as any).response.status);
+        console.error("API 응답 데이터:", (apiError as any).response.data);
+      }
+      throw apiError;
     }
   } catch (error) {
-    console.error("AI 리포트 생성 오류:", error);
-    return null;
+    console.error("AI 리포트 생성 중 전체 오류:", error);
+
+    // 파싱 실패 시 기본 구조 반환
+    return {
+      technicalAnalysis: {
+        overallLevel: "중",
+        detailedAssessment:
+          "AI 분석 중 오류가 발생하여 상세한 기술 역량 평가를 제공할 수 없습니다. 수동 검토가 필요해 보입니다.",
+        strengths:
+          "기본적인 기술 역량을 보유하고 있는 것으로 보이나, 구체적인 강점 분석을 위해서는 추가 검토가 필요합니다.",
+        weaknesses:
+          "상세한 약점 분석이 불가능한 상황입니다. 면접을 통한 직접적인 평가가 필요해 보입니다.",
+        timeEfficiency: "시간 효율성에 대한 분석이 현재 불가능한 상태입니다.",
+      },
+      personalityAnalysis: {
+        cooperation: "협업 능력에 대한 상세 분석이 현재 불가능합니다.",
+        responsibility: "책임감에 대한 구체적 평가가 필요합니다.",
+        leadership: "리더십 특성에 대한 추가 분석이 요구됩니다.",
+        organizationFit:
+          "조직 적응도 예측을 위해서는 면접 단계에서의 추가 평가가 필요해 보입니다.",
+        growthPotential:
+          "성장 가능성에 대한 종합적 판단을 위해 추가 정보가 필요합니다.",
+      },
+      overallAssessment: {
+        recommendation: "medium",
+        comprehensiveEvaluation:
+          "현재 AI 분석 시스템에 일시적 오류가 발생하여 완전한 종합 평가를 제공할 수 없습니다. 기본 데이터는 확인되었으나, 보다 정확한 평가를 위해서는 면접 단계에서의 직접 평가가 필요해 보입니다.",
+        keyStrengths:
+          "구체적인 강점 분석을 위해서는 시스템 복구 후 재평가가 필요한 상황입니다.",
+        developmentAreas:
+          "개발이 필요한 영역에 대한 상세 분석이 현재 불가능하여, 면접을 통한 직접 확인이 필요해 보입니다.",
+      },
+      interviewFocus: {
+        technicalQuestions:
+          "기술적 역량을 종합적으로 확인할 수 있는 질문들을 준비하여 면접에서 직접 평가하는 것이 필요해 보입니다.",
+        personalityQuestions:
+          "인성적 특성과 조직 적합성을 파악할 수 있는 구체적인 질문들을 통해 면접에서 심화 평가가 필요합니다.",
+      },
+    };
   }
 }
 

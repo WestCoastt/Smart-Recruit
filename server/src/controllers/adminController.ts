@@ -6,6 +6,15 @@ import {
   MultipleChoiceQuestion,
   ShortAnswerQuestion,
 } from "../models/Question";
+import {
+  CooperateQuestion,
+  ResponsibilityQuestion,
+  LeadershipQuestion,
+} from "../models/PersonalityQuestion";
+import {
+  generateAIReport,
+  generateInterviewQuestions,
+} from "../utils/aiReportGenerator";
 
 // 관리자 로그인
 export const loginAdmin = async (
@@ -487,7 +496,7 @@ export const getApplicantDetail = async (
         const questionMap = new Map();
 
         multipleChoiceQuestions.forEach((q) => {
-          questionMap.set(q._id!.toString(), {
+          questionMap.set((q._id as any).toString(), {
             id: q._id,
             category: q.category,
             question: q.question,
@@ -499,7 +508,7 @@ export const getApplicantDetail = async (
         });
 
         shortAnswerQuestions.forEach((q) => {
-          questionMap.set(q._id!.toString(), {
+          questionMap.set((q._id as any).toString(), {
             id: q._id,
             category: q.category,
             question: q.question,
@@ -582,6 +591,127 @@ export const getApplicantDetail = async (
       enrichedApplicant.technicalTest.maxScore = 30;
     }
 
+    // 인성 테스트 질문 정보 조회
+    if (
+      applicant.personalityTest &&
+      applicant.personalityTest.questionDetails
+    ) {
+      console.log("인성 테스트 질문 정보 조회 시작...");
+
+      const questionIds = applicant.personalityTest.questionDetails.map(
+        (detail) => detail.questionId
+      );
+
+      console.log("조회할 인성 테스트 질문 ID들:", questionIds.length, "개");
+
+      // 각 카테고리별로 질문 조회
+      const [cooperateQuestions, responsibilityQuestions, leadershipQuestions] =
+        await Promise.all([
+          CooperateQuestion.find({ _id: { $in: questionIds } }),
+          ResponsibilityQuestion.find({ _id: { $in: questionIds } }),
+          LeadershipQuestion.find({ _id: { $in: questionIds } }),
+        ]);
+
+      console.log("인성 테스트 질문 조회 결과:", {
+        cooperate: cooperateQuestions.length,
+        responsibility: responsibilityQuestions.length,
+        leadership: leadershipQuestions.length,
+      });
+
+      // 첫 번째 질문 샘플 로그
+      if (cooperateQuestions.length > 0) {
+        console.log("첫 번째 협업 질문 샘플:", {
+          id: cooperateQuestions[0]._id,
+          content: cooperateQuestions[0].content?.substring(0, 50) + "...",
+          reverse_scoring: cooperateQuestions[0].reverse_scoring,
+        });
+      }
+      if (responsibilityQuestions.length > 0) {
+        console.log("첫 번째 책임감 질문 샘플:", {
+          id: responsibilityQuestions[0]._id,
+          content: responsibilityQuestions[0].content?.substring(0, 50) + "...",
+          reverse_scoring: responsibilityQuestions[0].reverse_scoring,
+        });
+      }
+      if (leadershipQuestions.length > 0) {
+        console.log("첫 번째 리더십 질문 샘플:", {
+          id: leadershipQuestions[0]._id,
+          content: leadershipQuestions[0].content?.substring(0, 50) + "...",
+          reverse_scoring: leadershipQuestions[0].reverse_scoring,
+        });
+      }
+
+      // 모든 질문을 하나의 맵으로 합치기
+      const personalityQuestionMap = new Map();
+
+      cooperateQuestions.forEach((q) => {
+        personalityQuestionMap.set((q._id as any).toString(), {
+          id: q._id,
+          content: q.content,
+          category: "cooperate",
+          reverse_scoring: q.reverse_scoring,
+        });
+      });
+
+      responsibilityQuestions.forEach((q) => {
+        personalityQuestionMap.set((q._id as any).toString(), {
+          id: q._id,
+          content: q.content,
+          category: "responsibility",
+          reverse_scoring: q.reverse_scoring,
+        });
+      });
+
+      leadershipQuestions.forEach((q) => {
+        personalityQuestionMap.set((q._id as any).toString(), {
+          id: q._id,
+          content: q.content,
+          category: "leadership",
+          reverse_scoring: q.reverse_scoring,
+        });
+      });
+
+      console.log("personalityQuestionMap 크기:", personalityQuestionMap.size);
+      console.log(
+        "첫 번째 questionDetail ID:",
+        applicant.personalityTest.questionDetails[0]?.questionId
+      );
+      console.log(
+        "맵에서 찾은 질문:",
+        personalityQuestionMap.get(
+          applicant.personalityTest.questionDetails[0]?.questionId
+        )
+      );
+
+      // questionDetails에 질문 정보 추가
+      if (enrichedApplicant.personalityTest) {
+        enrichedApplicant.personalityTest.questionDetails =
+          applicant.personalityTest.questionDetails.map((detail, index) => {
+            const questionInfo = personalityQuestionMap.get(detail.questionId);
+
+            // 명시적으로 모든 필드를 포함하여 반환
+            return {
+              questionId: detail.questionId,
+              category: detail.category,
+              selected_answer: detail.selected_answer,
+              reverse_scoring: detail.reverse_scoring,
+              final_score: detail.final_score,
+              questionInfo: questionInfo || {
+                content: "질문 정보를 찾을 수 없습니다.",
+                category: "unknown",
+                reverse_scoring: false,
+              },
+            };
+          });
+      }
+
+      console.log("인성 테스트 질문 정보 조회 완료");
+      console.log(
+        "첫 번째 questionDetail 결과:",
+        enrichedApplicant.personalityTest?.questionDetails?.[0]
+      );
+    }
+
     console.log(
       "응답 직전 enrichedApplicant.technicalTest.results:",
       enrichedApplicant.technicalTest?.results
@@ -655,4 +785,257 @@ export const getApplicantStats = async (
       message: "서버 내부 오류가 발생했습니다.",
     });
   }
+};
+
+// AI 리포트 재생성
+export const regenerateAIReport = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { applicantId } = req.params;
+
+    // 지원자 조회
+    const applicant = await Applicant.findById(applicantId);
+    if (!applicant) {
+      res.status(404).json({
+        success: false,
+        message: "지원자를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 기술 테스트와 인성 테스트 완료 여부 확인
+    if (!applicant.technicalTest || !applicant.personalityTest) {
+      res.status(400).json({
+        success: false,
+        message:
+          "기술 테스트와 인성 테스트를 모두 완료한 지원자만 AI 리포트를 생성할 수 있습니다.",
+      });
+      return;
+    }
+
+    console.log(`${applicant.name} 지원자의 AI 리포트 재생성 시작...`);
+
+    // 기존 AI 리포트 완전 삭제 (스키마 검증 문제 해결)
+    console.log("기존 AI 리포트 완전 삭제 중...");
+    await Applicant.updateOne(
+      { _id: applicantId },
+      { $unset: { aiReport: 1 } }
+    );
+    console.log("기존 AI 리포트 삭제 완료");
+
+    // 지원자 정보 다시 로드
+    const updatedApplicant = await Applicant.findById(applicantId);
+    if (!updatedApplicant) {
+      res.status(404).json({
+        success: false,
+        message: "지원자를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 카테고리별 점수 계산 (실제 문제 정보 활용)
+    const categoryScores: {
+      [key: string]: { correct: number; total: number; percentage: number };
+    } = {};
+
+    const questionDetails: Array<{
+      questionId: string;
+      category: string;
+      isCorrect: boolean;
+      timeSpent: number;
+      difficulty?: string;
+    }> = [];
+
+    if (updatedApplicant.technicalTest?.results) {
+      // 모든 문제 ID 수집
+      const questionIds = updatedApplicant.technicalTest.results.map(
+        (result) => result.questionId
+      );
+
+      // 문제 정보 조회 (MultipleChoiceQuestion과 ShortAnswerQuestion 모두)
+      const [multipleChoiceQuestions, shortAnswerQuestions] = await Promise.all(
+        [
+          MultipleChoiceQuestion.find({ _id: { $in: questionIds } }),
+          ShortAnswerQuestion.find({ _id: { $in: questionIds } }),
+        ]
+      );
+
+      // 문제 정보 맵 생성
+      const questionInfoMap = new Map();
+      multipleChoiceQuestions.forEach((q) => {
+        questionInfoMap.set((q._id as any).toString(), {
+          category: q.category,
+          type: "multiple-choice",
+        });
+      });
+      shortAnswerQuestions.forEach((q) => {
+        questionInfoMap.set((q._id as any).toString(), {
+          category: q.category,
+          type: "short-answer",
+        });
+      });
+
+      // 결과 처리
+      updatedApplicant.technicalTest!.results!.forEach((result) => {
+        const questionInfo = questionInfoMap.get(result.questionId);
+        const category = questionInfo?.category || "기타";
+
+        if (!categoryScores[category]) {
+          categoryScores[category] = { correct: 0, total: 0, percentage: 0 };
+        }
+        categoryScores[category].total += 1;
+        if (result.isCorrect) {
+          categoryScores[category].correct += 1;
+        }
+
+        questionDetails.push({
+          questionId: result.questionId,
+          category: category,
+          isCorrect: result.isCorrect,
+          timeSpent: result.timeSpent,
+          difficulty: "medium",
+        });
+      });
+
+      // 퍼센티지 계산
+      Object.keys(categoryScores).forEach((category) => {
+        const cat = categoryScores[category];
+        cat.percentage = cat.total > 0 ? (cat.correct / cat.total) * 100 : 0;
+      });
+    }
+
+    console.log("카테고리별 점수:", categoryScores);
+
+    // AI 리포트 데이터 준비
+    const applicantData = {
+      name: updatedApplicant.name,
+      email: updatedApplicant.email,
+      phone: updatedApplicant.phone,
+      technicalTest: {
+        totalScore: updatedApplicant.technicalTest!.score,
+        categoryScores: categoryScores,
+        questionDetails: questionDetails,
+        totalTime: updatedApplicant.technicalTest!.totalTime,
+      },
+      personalityTest: {
+        scores: updatedApplicant.personalityTest!.scores,
+        questionDetails:
+          updatedApplicant.personalityTest!.questionDetails?.map((detail) => ({
+            questionId: detail.questionId,
+            category: detail.category,
+            selected_answer: detail.selected_answer,
+            reverse_scoring: detail.reverse_scoring,
+            final_score: detail.final_score,
+          })) || [],
+        totalTime: updatedApplicant.personalityTest!.totalTime,
+      },
+    };
+
+    console.log(
+      "AI 리포트 생성 데이터:",
+      JSON.stringify(applicantData, null, 2)
+    );
+
+    // AI 리포트 생성
+    console.log("=== AI 리포트 생성 시작 ===");
+    const [aiReport, interviewQuestions] = await Promise.all([
+      generateAIReport(applicantData),
+      generateInterviewQuestions(applicantData),
+    ]);
+
+    console.log("=== AI 리포트 생성 완료 ===");
+    console.log("aiReport 존재 여부:", !!aiReport);
+    console.log("interviewQuestions 존재 여부:", !!interviewQuestions);
+
+    if (aiReport) {
+      console.log("aiReport 구조:", Object.keys(aiReport));
+      if (aiReport.technicalAnalysis) {
+        console.log(
+          "technicalAnalysis 구조:",
+          Object.keys(aiReport.technicalAnalysis)
+        );
+        console.log(
+          "strengths 타입:",
+          typeof aiReport.technicalAnalysis.strengths,
+          Array.isArray(aiReport.technicalAnalysis.strengths)
+        );
+        console.log(
+          "weaknesses 타입:",
+          typeof aiReport.technicalAnalysis.weaknesses,
+          Array.isArray(aiReport.technicalAnalysis.weaknesses)
+        );
+      }
+    }
+
+    if (aiReport && interviewQuestions) {
+      console.log("=== 저장 전 데이터 구조 정규화 시작 ===");
+      console.log("변환 전 aiReport 구조:", JSON.stringify(aiReport, null, 2));
+
+      // 재귀적으로 모든 배열을 문자열로 변환
+      const convertedAiReport = convertArraysToStrings(aiReport);
+
+      console.log(
+        "변환 후 aiReport 구조:",
+        JSON.stringify(convertedAiReport, null, 2)
+      );
+      console.log("=== 저장 전 데이터 구조 정규화 완료 ===");
+
+      // AI 리포트 저장 (변환된 데이터 사용)
+      updatedApplicant.aiReport = {
+        report: convertedAiReport,
+        interviewQuestions,
+        generatedAt: new Date(),
+        modelUsed: "gpt-4o-mini",
+      };
+
+      await updatedApplicant.save();
+
+      console.log(`${updatedApplicant.name} 지원자의 AI 리포트 재생성 완료`);
+
+      res.status(200).json({
+        success: true,
+        message: "AI 리포트가 성공적으로 재생성되었습니다.",
+        data: updatedApplicant.aiReport,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "AI 리포트 생성 중 오류가 발생했습니다.",
+      });
+    }
+  } catch (error) {
+    console.error("AI 리포트 재생성 오류:", error);
+    res.status(500).json({
+      success: false,
+      message: "서버 내부 오류가 발생했습니다.",
+    });
+  }
+};
+
+// 배열을 문자열로 변환하는 재귀 함수
+const convertArraysToStrings = (obj: any): any => {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    // 배열인 경우 문자열로 변환
+    return obj.join(" ");
+  }
+
+  if (typeof obj === "object") {
+    // 객체인 경우 재귀적으로 처리
+    const result: any = {};
+    for (const key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        result[key] = convertArraysToStrings(obj[key]);
+      }
+    }
+    return result;
+  }
+
+  // 기본 타입인 경우 그대로 반환
+  return obj;
 };

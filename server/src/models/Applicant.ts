@@ -59,8 +59,9 @@ export interface IApplicant extends Document {
     report: {
       technicalAnalysis: {
         overallLevel: string;
-        strengths: string[];
-        weaknesses: string[];
+        detailedAssessment: string;
+        strengths: string;
+        weaknesses: string;
         timeEfficiency: string;
       };
       personalityAnalysis: {
@@ -72,12 +73,13 @@ export interface IApplicant extends Document {
       };
       overallAssessment: {
         recommendation: "high" | "medium" | "low";
-        mainStrengths: string[];
-        improvementAreas: string[];
+        comprehensiveEvaluation: string;
+        keyStrengths: string;
+        developmentAreas: string;
       };
       interviewFocus: {
-        technicalPoints: string[];
-        personalityPoints: string[];
+        technicalQuestions: string;
+        personalityQuestions: string;
       };
     };
     interviewQuestions: {
@@ -197,8 +199,9 @@ const ApplicantSchema: Schema = new Schema(
       report: {
         technicalAnalysis: {
           overallLevel: String,
-          strengths: [String],
-          weaknesses: [String],
+          detailedAssessment: String,
+          strengths: String,
+          weaknesses: String,
           timeEfficiency: String,
         },
         personalityAnalysis: {
@@ -213,12 +216,13 @@ const ApplicantSchema: Schema = new Schema(
             type: String,
             enum: ["high", "medium", "low"],
           },
-          mainStrengths: [String],
-          improvementAreas: [String],
+          comprehensiveEvaluation: String,
+          keyStrengths: String,
+          developmentAreas: String,
         },
         interviewFocus: {
-          technicalPoints: [String],
-          personalityPoints: [String],
+          technicalQuestions: String,
+          personalityQuestions: String,
         },
       },
       interviewQuestions: {

@@ -7,6 +7,7 @@ import {
   getApplicants,
   getApplicantDetail,
   getApplicantStats,
+  regenerateAIReport,
 } from "../controllers/adminController";
 import { authenticateToken } from "../middleware/auth";
 
@@ -28,5 +29,10 @@ router.get("/verify", authenticateToken, verifyToken);
 router.get("/applicants", authenticateToken, getApplicants);
 router.get("/applicants/stats", authenticateToken, getApplicantStats);
 router.get("/applicants/:applicantId", authenticateToken, getApplicantDetail);
+router.post(
+  "/applicants/:applicantId/regenerate-ai-report",
+  authenticateToken,
+  regenerateAIReport
+);
 
 export default router;

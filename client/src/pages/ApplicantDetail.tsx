@@ -70,6 +70,19 @@ interface ApplicantDetail {
       leadership: { score: number; level: string };
       total: number;
     };
+    questionDetails?: Array<{
+      questionId: string;
+      category: string;
+      selected_answer: number;
+      reverse_scoring: boolean;
+      final_score: number;
+      questionInfo?: {
+        id: string;
+        content: string;
+        category: string;
+        reverse_scoring: boolean;
+      };
+    }>;
   };
   aiReport?: {
     report: {
@@ -181,6 +194,42 @@ const ApplicantDetail: React.FC = () => {
           );
           console.log("maxScore:", data.data.technicalTest.maxScore);
           console.log("questionTimes:", data.data.technicalTest.questionTimes);
+        }
+        if (data.data.personalityTest) {
+          console.log("인성테스트 데이터:", data.data.personalityTest);
+          console.log(
+            "questionDetails 배열:",
+            data.data.personalityTest.questionDetails
+          );
+          console.log(
+            "questionDetails 길이:",
+            data.data.personalityTest.questionDetails?.length
+          );
+          if (data.data.personalityTest.questionDetails?.length > 0) {
+            console.log(
+              "첫 번째 questionDetail:",
+              data.data.personalityTest.questionDetails[0]
+            );
+            console.log(
+              "두 번째 questionDetail:",
+              data.data.personalityTest.questionDetails[1]
+            );
+            console.log(
+              "세 번째 questionDetail:",
+              data.data.personalityTest.questionDetails[2]
+            );
+          }
+        }
+        if (data.data.aiReport) {
+          console.log("AI 리포트 데이터:", data.data.aiReport);
+          console.log(
+            "기술분석 강점:",
+            data.data.aiReport.report?.technicalAnalysis?.strengths
+          );
+          console.log(
+            "기술분석 약점:",
+            data.data.aiReport.report?.technicalAnalysis?.weaknesses
+          );
         }
         setApplicant(data.data);
       } else {
@@ -1236,6 +1285,201 @@ const ApplicantDetail: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* 질문 리스트 */}
+                  {(() => {
+                    const questionDetails =
+                      applicant.personalityTest?.questionDetails;
+                    console.log(
+                      "인성테스트 questionDetails 확인:",
+                      questionDetails
+                    );
+                    return questionDetails && questionDetails.length > 0;
+                  })() && (
+                    <div className="bg-white p-6 rounded-lg shadow-sm">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+                        <h3 className="text-lg font-medium text-slate-900">
+                          질문 리스트
+                        </h3>
+                      </div>
+
+                      <div className="space-y-3">
+                        {applicant.personalityTest.questionDetails?.map(
+                          (detail, index) => {
+                            console.log(
+                              `질문 ${index + 1} 전체 데이터:`,
+                              detail
+                            );
+                            console.log(
+                              `질문 ${index + 1} selected_answer:`,
+                              detail.selected_answer,
+                              "타입:",
+                              typeof detail.selected_answer
+                            );
+                            console.log(
+                              `질문 ${index + 1} final_score:`,
+                              detail.final_score,
+                              "타입:",
+                              typeof detail.final_score
+                            );
+                            console.log(
+                              `질문 ${index + 1} questionInfo:`,
+                              detail.questionInfo
+                            );
+
+                            const getAnswerLabel = (answer: number) => {
+                              // 숫자가 아닌 경우 처리
+                              if (typeof answer !== "number") {
+                                return "데이터 오류";
+                              }
+
+                              // 1-5 범위가 아닌 경우 처리
+                              if (answer < 1 || answer > 5) {
+                                return `잘못된 값 (${answer})`;
+                              }
+
+                              const labels = [
+                                "전혀 그렇지 않다",
+                                "그렇지 않다",
+                                "보통이다",
+                                "그렇다",
+                                "매우 그렇다",
+                              ];
+                              return labels[answer - 1] || "알 수 없음";
+                            };
+
+                            const getCategoryLabel = (category: string) => {
+                              const labels: { [key: string]: string } = {
+                                cooperate: "협업",
+                                responsibility: "책임감",
+                                leadership: "리더십",
+                              };
+                              return labels[category] || category;
+                            };
+
+                            const getCategoryColor = (category: string) => {
+                              const colors: { [key: string]: string } = {
+                                cooperate: "bg-blue-100 text-blue-800",
+                                responsibility:
+                                  "bg-emerald-100 text-emerald-800",
+                                leadership: "bg-purple-100 text-purple-800",
+                              };
+                              return (
+                                colors[category] || "bg-gray-100 text-gray-800"
+                              );
+                            };
+
+                            return (
+                              <div
+                                key={index}
+                                className="border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                              >
+                                <button
+                                  onClick={() => toggleQuestion(index)}
+                                  className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 flex-1">
+                                      <span className="text-sm font-medium text-gray-600">
+                                        {index + 1}번
+                                      </span>
+                                      <span
+                                        className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(
+                                          detail.category
+                                        )}`}
+                                      >
+                                        {getCategoryLabel(detail.category)}
+                                      </span>
+                                      {detail.reverse_scoring && (
+                                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                                          역채점
+                                        </span>
+                                      )}
+                                      {detail.questionInfo && (
+                                        <span className="text-sm text-gray-700 truncate flex-1 ml-2">
+                                          {detail.questionInfo.content.length >
+                                          50
+                                            ? detail.questionInfo.content.substring(
+                                                0,
+                                                50
+                                              ) + "..."
+                                            : detail.questionInfo.content}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      <span className="text-sm text-gray-500">
+                                        {detail.final_score}점
+                                      </span>
+                                      <svg
+                                        className={`w-4 h-4 text-gray-400 transition-transform ${
+                                          expandedQuestions.has(index)
+                                            ? "rotate-180"
+                                            : ""
+                                        }`}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M19 9l-7 7-7-7"
+                                        />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </button>
+
+                                {expandedQuestions.has(index) && (
+                                  <div className="px-4 pb-4 border-t border-gray-100">
+                                    <div className="pt-3 space-y-3">
+                                      {detail.questionInfo ? (
+                                        <>
+                                          <div>
+                                            <h4 className="text-sm font-medium text-gray-900 mb-1">
+                                              질문 내용
+                                            </h4>
+                                            <p className="text-sm text-gray-700">
+                                              {detail.questionInfo.content}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <h4 className="text-sm font-medium text-gray-900 mb-1">
+                                              선택한 답변
+                                            </h4>
+                                            <p className="text-sm text-gray-700">
+                                              {getAnswerLabel(
+                                                detail.selected_answer
+                                              )}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <h4 className="text-sm font-medium text-gray-900 mb-1">
+                                              최종 점수
+                                            </h4>
+                                            <p className="text-sm text-gray-700">
+                                              {detail.final_score}점
+                                            </p>
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <div className="text-sm text-gray-500">
+                                          질문 정보를 불러올 수 없습니다.
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1252,25 +1496,49 @@ const ApplicantDetail: React.FC = () => {
                         <h4 className="font-medium text-gray-900 mb-2">
                           주요 강점
                         </h4>
-                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                          {applicant.aiReport.report.overallAssessment.mainStrengths.map(
-                            (strength, index) => (
-                              <li key={index}>{strength}</li>
-                            )
-                          )}
-                        </ul>
+                        <div className="text-sm text-gray-600">
+                          {(() => {
+                            const strengths =
+                              applicant.aiReport.report.overallAssessment
+                                .mainStrengths;
+                            if (Array.isArray(strengths)) {
+                              return (
+                                <ul className="list-disc list-inside space-y-1">
+                                  {strengths.map((strength, index) => (
+                                    <li key={index}>{strength}</li>
+                                  ))}
+                                </ul>
+                              );
+                            } else if (typeof strengths === "string") {
+                              return <p>{strengths}</p>;
+                            }
+                            return <p>강점 정보가 없습니다.</p>;
+                          })()}
+                        </div>
                       </div>
                       <div>
                         <h4 className="font-medium text-gray-900 mb-2">
                           개선 영역
                         </h4>
-                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                          {applicant.aiReport.report.overallAssessment.improvementAreas.map(
-                            (area, index) => (
-                              <li key={index}>{area}</li>
-                            )
-                          )}
-                        </ul>
+                        <div className="text-sm text-gray-600">
+                          {(() => {
+                            const areas =
+                              applicant.aiReport.report.overallAssessment
+                                .improvementAreas;
+                            if (Array.isArray(areas)) {
+                              return (
+                                <ul className="list-disc list-inside space-y-1">
+                                  {areas.map((area, index) => (
+                                    <li key={index}>{area}</li>
+                                  ))}
+                                </ul>
+                              );
+                            } else if (typeof areas === "string") {
+                              return <p>{areas}</p>;
+                            }
+                            return <p>개선 영역 정보가 없습니다.</p>;
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1305,23 +1573,47 @@ const ApplicantDetail: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="font-medium text-blue-900 mb-2">강점</h4>
-                        <ul className="list-disc list-inside text-sm text-blue-800 space-y-1">
-                          {applicant.aiReport.report.technicalAnalysis.strengths.map(
-                            (strength, index) => (
-                              <li key={index}>{strength}</li>
-                            )
-                          )}
-                        </ul>
+                        <div className="text-sm text-blue-800">
+                          {(() => {
+                            const strengths =
+                              applicant.aiReport.report.technicalAnalysis
+                                .strengths;
+                            if (Array.isArray(strengths)) {
+                              return (
+                                <ul className="list-disc list-inside space-y-1">
+                                  {strengths.map((strength, index) => (
+                                    <li key={index}>{strength}</li>
+                                  ))}
+                                </ul>
+                              );
+                            } else if (typeof strengths === "string") {
+                              return <p>{strengths}</p>;
+                            }
+                            return <p>강점 정보가 없습니다.</p>;
+                          })()}
+                        </div>
                       </div>
                       <div>
                         <h4 className="font-medium text-blue-900 mb-2">약점</h4>
-                        <ul className="list-disc list-inside text-sm text-blue-800 space-y-1">
-                          {applicant.aiReport.report.technicalAnalysis.weaknesses.map(
-                            (weakness, index) => (
-                              <li key={index}>{weakness}</li>
-                            )
-                          )}
-                        </ul>
+                        <div className="text-sm text-blue-800">
+                          {(() => {
+                            const weaknesses =
+                              applicant.aiReport.report.technicalAnalysis
+                                .weaknesses;
+                            if (Array.isArray(weaknesses)) {
+                              return (
+                                <ul className="list-disc list-inside space-y-1">
+                                  {weaknesses.map((weakness, index) => (
+                                    <li key={index}>{weakness}</li>
+                                  ))}
+                                </ul>
+                              );
+                            } else if (typeof weaknesses === "string") {
+                              return <p>{weaknesses}</p>;
+                            }
+                            return <p>약점 정보가 없습니다.</p>;
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1401,7 +1693,7 @@ const ApplicantDetail: React.FC = () => {
                       기술 면접 질문
                     </h3>
                     <div className="space-y-4">
-                      {applicant.aiReport.interviewQuestions.technical.map(
+                      {applicant.aiReport.interviewQuestions?.technical?.map(
                         (question, index) => (
                           <div
                             key={index}
@@ -1435,7 +1727,7 @@ const ApplicantDetail: React.FC = () => {
                       인성 면접 질문
                     </h3>
                     <div className="space-y-4">
-                      {applicant.aiReport.interviewQuestions.personality.map(
+                      {applicant.aiReport.interviewQuestions?.personality?.map(
                         (question, index) => (
                           <div
                             key={index}
@@ -1469,7 +1761,7 @@ const ApplicantDetail: React.FC = () => {
                       후속 질문
                     </h3>
                     <div className="space-y-4">
-                      {applicant.aiReport.interviewQuestions.followUp.map(
+                      {applicant.aiReport.interviewQuestions?.followUp?.map(
                         (question, index) => (
                           <div
                             key={index}
