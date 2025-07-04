@@ -25,6 +25,8 @@ const AdminDashboard: React.FC = () => {
     try {
       const parsedAdminInfo = JSON.parse(storedAdminInfo);
       setAdminInfo(parsedAdminInfo);
+      // 로그인 후 바로 지원자 관리 페이지로 이동
+      navigate("/admin/applicants");
     } catch (error) {
       console.error("관리자 정보 파싱 오류:", error);
       handleLogout();

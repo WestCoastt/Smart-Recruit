@@ -79,11 +79,18 @@ export const submitApplicantInfo = async (
 // 지원자 목록 조회 API (관리자용)
 export const getApplicants = async (): Promise<ApiResponse> => {
   try {
+    const adminToken = localStorage.getItem("adminToken");
+    if (!adminToken) {
+      throw new Error("관리자 인증이 필요합니다.");
+    }
+
     const response = await fetch(`${API_BASE_URL}/applicants`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
       },
+      credentials: "include",
     });
 
     const result: ApiResponse = await response.json();
@@ -102,11 +109,18 @@ export const getApplicants = async (): Promise<ApiResponse> => {
 // 특정 지원자 조회 API
 export const getApplicantById = async (id: string): Promise<ApiResponse> => {
   try {
+    const adminToken = localStorage.getItem("adminToken");
+    if (!adminToken) {
+      throw new Error("관리자 인증이 필요합니다.");
+    }
+
     const response = await fetch(`${API_BASE_URL}/applicants/${id}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
       },
+      credentials: "include",
     });
 
     const result: ApiResponse = await response.json();
@@ -229,6 +243,41 @@ export const submitPersonalityTest = async (
     return {
       success: false,
       message: "인성 테스트 제출 중 오류가 발생했습니다.",
+    };
+  }
+};
+
+// 면접 질문만 재생성 (기술/인성)
+export const regenerateInterviewQuestions = async (
+  applicantId: string,
+  type: "technical" | "personality"
+): Promise<ApiResponse> => {
+  try {
+    const adminToken = localStorage.getItem("adminToken");
+    if (!adminToken) {
+      throw new Error("관리자 인증이 필요합니다.");
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/admin/applicants/${applicantId}/interview-questions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ type }),
+      }
+    );
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("면접 질문 재생성 오류:", error);
+    return {
+      success: false,
+      message: "면접 질문 재생성 중 오류가 발생했습니다.",
     };
   }
 };

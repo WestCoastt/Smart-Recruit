@@ -15,6 +15,7 @@ import {
   generateAIReport,
   generateInterviewQuestions,
 } from "../utils/aiReportGenerator";
+import { generateInterviewQuestions as questionGenerator } from "../utils/questionGenerator";
 
 // 관리자 로그인
 export const loginAdmin = async (
@@ -270,7 +271,7 @@ export const getApplicants = async (
     // 지원자 목록 조회
     const applicants = await Applicant.find(searchCondition)
       .select(
-        "name email phone technicalTest.score technicalTest.maxScore personalityTest.scores.total createdAt"
+        "name email phone technicalTest.score technicalTest.maxScore personalityTest.scores.total createdAt cheatingDetected"
       )
       .sort(sortCondition)
       .skip(skip)
@@ -290,6 +291,7 @@ export const getApplicants = async (
       personalityScore: applicant.personalityTest?.scores?.total || 0,
       createdAt: applicant.createdAt,
       hasAiReport: !!applicant.aiReport,
+      cheatingDetected: applicant.cheatingDetected || { isCheating: false },
     }));
 
     res.status(200).json({
@@ -328,6 +330,20 @@ export const getApplicantDetail = async (
       res.status(404).json({
         success: false,
         message: "지원자를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 부정행위자인 경우 상세보기 차단
+    if (applicant.cheatingDetected?.isCheating) {
+      res.status(403).json({
+        success: false,
+        message: "부정행위가 감지된 지원자의 상세 정보는 조회할 수 없습니다.",
+        cheatingInfo: {
+          reason: applicant.cheatingDetected.reason,
+          detectedAt: applicant.cheatingDetected.detectedAt,
+          testType: applicant.cheatingDetected.testType,
+        },
       });
       return;
     }
@@ -1038,4 +1054,12 @@ const convertArraysToStrings = (obj: any): any => {
 
   // 기본 타입인 경우 그대로 반환
   return obj;
+};
+
+// 면접 질문만 재생성 (기술/인성 구분)
+export const regenerateInterviewQuestions = async (
+  req: Request,
+  res: Response
+) => {
+  // ... 기존 코드 유지 ...
 };

@@ -8,6 +8,14 @@ export interface IApplicant extends Document {
   createdAt: Date;
   updatedAt: Date;
 
+  // 부정행위 여부
+  cheatingDetected?: {
+    isCheating: boolean;
+    reason: string;
+    detectedAt: Date;
+    testType: "technical" | "personality"; // 어느 테스트에서 부정행위가 발생했는지
+  };
+
   // 기술 역량 테스트 결과
   technicalTest?: {
     answers: { [questionId: string]: string };
@@ -133,6 +141,20 @@ const ApplicantSchema: Schema = new Schema(
     createdAt: {
       type: Date,
       default: Date.now,
+    },
+
+    // 부정행위 여부
+    cheatingDetected: {
+      isCheating: {
+        type: Boolean,
+        default: false,
+      },
+      reason: String,
+      detectedAt: Date,
+      testType: {
+        type: String,
+        enum: ["technical", "personality"],
+      },
     },
 
     // 기술 역량 테스트 결과

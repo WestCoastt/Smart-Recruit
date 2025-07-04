@@ -5,6 +5,123 @@ export interface ApplicantInfo {
   phone: string;
 }
 
+// 지원자 상세 정보 타입 (관리자용)
+export interface ApplicantDetail {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  createdAt: string;
+  cheatingDetected?: {
+    isCheating: boolean;
+    reason: string;
+    detectedAt: string;
+    testType: "technical" | "personality";
+  };
+  technicalTest?: {
+    score: number;
+    maxScore: number;
+    totalTime: number;
+    totalQuestions?: number;
+    results: Array<{
+      questionId: string;
+      userAnswer: string;
+      correctAnswer: string | string[];
+      isCorrect: boolean;
+      timeSpent: number;
+      questionInfo?: {
+        id: string;
+        category: string;
+        question: string;
+        type: "multiple-choice" | "short-answer" | "unknown";
+        options?: string[];
+        correctAnswer: string | string[];
+        explanation?: string;
+      };
+    }>;
+    allQuestions?: Array<{
+      index: number;
+      questionId: string;
+      questionInfo: {
+        id: string;
+        category: string;
+        question: string;
+        type: "multiple-choice" | "short-answer" | "unknown";
+        options?: string[];
+        correctAnswer: string | string[];
+        explanation?: string;
+      };
+    }>;
+    submittedAt: string;
+  };
+  personalityTest?: {
+    totalTime: number;
+    submittedAt: string;
+    scores: {
+      cooperate: { score: number; level: string };
+      responsibility: { score: number; level: string };
+      leadership: { score: number; level: string };
+      total: number;
+    };
+    questionDetails?: Array<{
+      questionId: string;
+      category: string;
+      selected_answer: number;
+      reverse_scoring: boolean;
+      final_score: number;
+      questionInfo?: {
+        id: string;
+        content: string;
+        category: string;
+        reverse_scoring: boolean;
+      };
+    }>;
+  };
+  aiReport?: {
+    report: {
+      technicalAnalysis: {
+        overallLevel: string;
+        strengths: string[];
+        weaknesses: string[];
+        timeEfficiency: string;
+      };
+      personalityAnalysis: {
+        cooperation: string;
+        responsibility: string;
+        leadership: string;
+        organizationFit: string;
+        growthPotential: string;
+      };
+      overallAssessment: {
+        recommendation: "high" | "medium" | "low";
+        mainStrengths: string[];
+        improvementAreas: string[];
+      };
+    };
+    interviewQuestions: {
+      technical: Array<{
+        category: string;
+        question: string;
+        purpose: string;
+        type?: string;
+      }>;
+      personality: Array<{
+        category: string;
+        question: string;
+        purpose: string;
+        basedOn?: string;
+      }>;
+      followUp: Array<{
+        type: string;
+        question: string;
+        purpose: string;
+      }>;
+    };
+    generatedAt: string;
+    modelUsed: string;
+  };
+}
+
 // 답변 타입
 export interface Answer {
   questionId: string;

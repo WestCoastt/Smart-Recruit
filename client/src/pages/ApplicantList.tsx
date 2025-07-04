@@ -11,6 +11,12 @@ interface Applicant {
   personalityScore: number;
   createdAt: string;
   hasAiReport: boolean;
+  cheatingDetected?: {
+    isCheating: boolean;
+    reason: string;
+    detectedAt: string;
+    testType: "technical" | "personality";
+  };
 }
 
 interface Stats {
@@ -153,13 +159,19 @@ const ApplicantList: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate("/admin/dashboard")}
-                className="text-indigo-600 hover:text-indigo-800"
-              >
-                ← 대시보드
-              </button>
               <h1 className="text-3xl font-bold text-gray-900">지원자 관리</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => {
+                  localStorage.removeItem("adminToken");
+                  localStorage.removeItem("adminInfo");
+                  navigate("/admin/login");
+                }}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+              >
+                로그아웃
+              </button>
             </div>
           </div>
         </div>
@@ -433,27 +445,41 @@ const ApplicantList: React.FC = () => {
                               {formatDate(applicant.createdAt)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                  applicant.hasAiReport
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {applicant.hasAiReport
-                                  ? "AI 리포트 완료"
-                                  : "평가 중"}
-                              </span>
+                              {applicant.cheatingDetected?.isCheating ? (
+                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                  부정행위 감지
+                                </span>
+                              ) : (
+                                <span
+                                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                    applicant.hasAiReport
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}
+                                >
+                                  {applicant.hasAiReport
+                                    ? "AI 리포트 완료"
+                                    : "평가 중"}
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button
-                                onClick={() =>
-                                  navigate(`/admin/applicants/${applicant.id}`)
-                                }
-                                className="text-indigo-600 hover:text-indigo-900"
-                              >
-                                상세보기
-                              </button>
+                              {applicant.cheatingDetected?.isCheating ? (
+                                <span className="text-gray-400 cursor-not-allowed">
+                                  상세보기
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() =>
+                                    navigate(
+                                      `/admin/applicants/${applicant.id}`
+                                    )
+                                  }
+                                  className="text-indigo-600 hover:text-indigo-900"
+                                >
+                                  상세보기
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}

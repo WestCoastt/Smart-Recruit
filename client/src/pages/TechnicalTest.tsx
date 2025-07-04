@@ -41,18 +41,37 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
 
   // 테스트 종료 함수
   const endTest = useCallback(
-    (reason: string) => {
+    async (reason: string) => {
       if (isTestEnded) return;
 
       setIsTestEnded(true);
       setIsShowingAlert(true); // alert 표시 시작
+
+      // 부정행위인 경우 서버에 기록
+      if (reason.includes("부정행위")) {
+        try {
+          await fetch(`/api/applicants/${applicantId}/cheating`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              reason: reason,
+              testType: "technical",
+            }),
+          });
+        } catch (error) {
+          console.error("부정행위 기록 실패:", error);
+        }
+      }
+
       alert(`평가가 종료되었습니다.\n사유: ${reason}`);
       setIsShowingAlert(false); // alert 표시 종료
 
       // 메인 페이지로 이동
       navigate("/", { replace: true });
     },
-    [isTestEnded, navigate]
+    [isTestEnded, navigate, applicantId]
   );
 
   // 화면 이탈 감지
@@ -367,7 +386,7 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
               <button
                 onClick={submitTest}
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
               >
                 {isSubmitting ? "제출 중..." : "제출"}
               </button>
@@ -502,12 +521,20 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
                 </button>
 
                 <div className="flex space-x-4">
-                  {currentQuestionIndex < questions.length - 1 && (
+                  {currentQuestionIndex < questions.length - 1 ? (
                     <button
                       onClick={goToNextQuestion}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                       다음 문제
+                    </button>
+                  ) : (
+                    <button
+                      onClick={submitTest}
+                      disabled={isSubmitting}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isSubmitting ? "제출 중..." : "테스트 완료"}
                     </button>
                   )}
                 </div>

@@ -9,6 +9,7 @@ import {
   getApplicantStats,
   regenerateAIReport,
 } from "../controllers/adminController";
+import { regenerateInterviewQuestions } from "../controllers/interviewController";
 import { authenticateToken } from "../middleware/auth";
 
 const router = express.Router();
@@ -33,6 +34,12 @@ router.post(
   "/applicants/:applicantId/regenerate-ai-report",
   authenticateToken,
   regenerateAIReport
+);
+// 면접 질문만 재생성 (기술/인성 구분)
+router.post(
+  "/applicants/:applicantId/regenerate-interview-questions",
+  authenticateToken,
+  regenerateInterviewQuestions
 );
 
 export default router;

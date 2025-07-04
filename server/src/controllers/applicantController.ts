@@ -387,3 +387,59 @@ export const getApplicants = async (req: Request, res: Response) => {
     });
   }
 };
+
+// 부정행위 지원자 처리
+export const markAsCheating = async (req: Request, res: Response) => {
+  try {
+    const { applicantId } = req.params;
+    const { reason, testType } = req.body;
+
+    if (!applicantId) {
+      return res.status(400).json({
+        success: false,
+        message: "지원자 ID가 필요합니다.",
+      });
+    }
+
+    if (!reason || !testType) {
+      return res.status(400).json({
+        success: false,
+        message: "부정행위 사유와 테스트 타입이 필요합니다.",
+      });
+    }
+
+    // 지원자 찾기
+    const applicant = await Applicant.findById(applicantId);
+    if (!applicant) {
+      return res.status(404).json({
+        success: false,
+        message: "지원자를 찾을 수 없습니다.",
+      });
+    }
+
+    // 부정행위 정보 업데이트
+    applicant.cheatingDetected = {
+      isCheating: true,
+      reason: reason,
+      detectedAt: new Date(),
+      testType: testType,
+    };
+
+    await applicant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "지원자가 부정행위자로 처리되었습니다.",
+      data: {
+        applicantId,
+        cheatingDetected: applicant.cheatingDetected,
+      },
+    });
+  } catch (error) {
+    console.error("부정행위 처리 중 오류:", error);
+    res.status(500).json({
+      success: false,
+      message: "서버 내부 오류가 발생했습니다.",
+    });
+  }
+};
