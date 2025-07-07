@@ -250,7 +250,7 @@ export const getApplicants = async (
     // 지원자 목록 조회
     const applicants = await Applicant.find(searchCondition)
       .select(
-        "name email phone technicalTest.score technicalTest.maxScore personalityTest.scores.total createdAt cheatingDetected aiReport.report.overallAssessment.recommendation"
+        "name email phone technicalTest.score technicalTest.maxScore personalityTest.scores.total createdAt cheatingDetected aiReport.overallAssessment.recommendation"
       )
       .sort(sortCondition)
       .skip(skip)
@@ -271,7 +271,7 @@ export const getApplicants = async (
       createdAt: applicant.createdAt,
       hasAiReport: !!applicant.aiReport,
       recommendation:
-        applicant.aiReport?.report?.overallAssessment?.recommendation || null,
+        applicant.aiReport?.overallAssessment?.recommendation || null,
       cheatingDetected: applicant.cheatingDetected || { isCheating: false },
     }));
 
@@ -981,10 +981,10 @@ export const regenerateAIReport = async (
 
       // AI 리포트 저장 (변환된 데이터 사용)
       updatedApplicant.aiReport = {
-        report: convertedAiReport,
+        ...convertedAiReport,
         interviewQuestions,
         generatedAt: new Date(),
-        modelUsed: "gpt-4o-mini",
+        modelUsed: "gpt-4",
       };
 
       await updatedApplicant.save();
@@ -1018,7 +1018,11 @@ const convertArraysToStrings = (obj: any): any => {
   }
 
   if (Array.isArray(obj)) {
-    // 배열인 경우 문자열로 변환
+    // interviewQuestions 필드는 배열 형태 유지
+    if (obj[0] && typeof obj[0] === "string") {
+      return obj;
+    }
+    // 나머지 배열은 문자열로 변환
     return obj.join(" ");
   }
 

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { ApplicantDetail } from "../../types";
+import { regenerateAIReport as regenerateAIReportApi } from "../../utils/api";
 
 interface AIReportTabProps {
   applicant: ApplicantDetail;
@@ -44,37 +45,20 @@ const AIReportTab: React.FC<AIReportTabProps> = ({
 
     try {
       setRegeneratingAI(true);
-      const token = localStorage.getItem("adminToken");
+      const result = await regenerateAIReportApi(applicant._id);
 
-      if (!token) {
-        alert("인증 토큰이 없습니다. 다시 로그인해주세요.");
-        return;
-      }
-
-      const response = await fetch(
-        `/api/admin/applicants/${applicant._id}/regenerate-ai-report`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          await onRefreshApplicant();
-          alert("AI 리포트가 성공적으로 재생성되었습니다.");
-        } else {
-          alert("AI 리포트 재생성 중 오류가 발생했습니다.");
-        }
+      if (result.success) {
+        await onRefreshApplicant();
+        alert("AI 리포트가 성공적으로 재생성되었습니다.");
       } else {
-        alert("AI 리포트 재생성 요청이 실패했습니다.");
+        alert(result.message || "AI 리포트 재생성 중 오류가 발생했습니다.");
       }
-    } catch {
-      alert("AI 리포트 재생성 중 네트워크 오류가 발생했습니다.");
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "AI 리포트 재생성 중 네트워크 오류가 발생했습니다."
+      );
     } finally {
       setRegeneratingAI(false);
     }

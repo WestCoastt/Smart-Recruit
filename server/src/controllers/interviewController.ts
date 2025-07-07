@@ -19,36 +19,34 @@ interface FollowUpQuestion {
 }
 
 interface AIReport {
-  report: {
-    technicalAnalysis: {
-      overallLevel: string;
-      detailedAssessment: string;
-      strengths: string;
-      weaknesses: string;
-      timeEfficiency: string;
-    };
-    personalityAnalysis: {
-      cooperation: string;
-      responsibility: string;
-      leadership: string;
-      organizationFit: string;
-      growthPotential: string;
-    };
-    overallAssessment: {
-      recommendation: "high" | "medium" | "low";
-      comprehensiveEvaluation: string;
-      keyStrengths: string;
-      developmentAreas: string;
-    };
-    interviewFocus: {
-      technicalQuestions: string;
-      personalityQuestions: string;
-    };
+  technicalAnalysis: {
+    overallLevel: string;
+    detailedAssessment: string;
+    strengths: string;
+    weaknesses: string;
+    timeEfficiency: string;
+  };
+  personalityAnalysis: {
+    cooperation: string;
+    responsibility: string;
+    leadership: string;
+    organizationFit: string;
+    growthPotential: string;
+  };
+  overallAssessment: {
+    recommendation: "high" | "medium" | "low";
+    comprehensiveEvaluation: string;
+    keyStrengths: string;
+    developmentAreas: string;
+  };
+  interviewFocus: {
+    technicalQuestions: string;
+    personalityQuestions: string;
   };
   interviewQuestions: {
-    technical: InterviewQuestion[];
-    personality: InterviewQuestion[];
-    followUp: FollowUpQuestion[];
+    technical: string[];
+    personality: string[];
+    followUp: string[];
   };
   generatedAt: Date;
   modelUsed: string;
@@ -201,31 +199,29 @@ export const regenerateInterviewQuestions = async (
     if (!applicant.aiReport) {
       console.log("[면접 질문 재생성] aiReport 기본 구조 생성");
       const defaultAIReport: AIReport = {
-        report: {
-          technicalAnalysis: {
-            overallLevel: "",
-            detailedAssessment: "",
-            strengths: "",
-            weaknesses: "",
-            timeEfficiency: "",
-          },
-          personalityAnalysis: {
-            cooperation: "",
-            responsibility: "",
-            leadership: "",
-            organizationFit: "",
-            growthPotential: "",
-          },
-          overallAssessment: {
-            recommendation: "medium",
-            comprehensiveEvaluation: "",
-            keyStrengths: "",
-            developmentAreas: "",
-          },
-          interviewFocus: {
-            technicalQuestions: "",
-            personalityQuestions: "",
-          },
+        technicalAnalysis: {
+          overallLevel: "",
+          detailedAssessment: "",
+          strengths: "",
+          weaknesses: "",
+          timeEfficiency: "",
+        },
+        personalityAnalysis: {
+          cooperation: "",
+          responsibility: "",
+          leadership: "",
+          organizationFit: "",
+          growthPotential: "",
+        },
+        overallAssessment: {
+          recommendation: "medium",
+          comprehensiveEvaluation: "",
+          keyStrengths: "",
+          developmentAreas: "",
+        },
+        interviewFocus: {
+          technicalQuestions: "",
+          personalityQuestions: "",
         },
         interviewQuestions: {
           technical: [],

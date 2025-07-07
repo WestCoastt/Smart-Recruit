@@ -402,7 +402,7 @@ ${categoryAnalysis
       console.log("API 요청 전 상태 확인 완료");
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4",
         messages: [
           {
             role: "system",
@@ -943,140 +943,126 @@ const processTemplate = (
   return processed;
 };
 
-// 새로운 면접 질문 생성 함수
+// 기술 면접 질문 생성 함수
+async function generateTechnicalQuestions(applicantData: ApplicantData) {
+  const questions = [];
+
+  for (const template of technicalQuestionTemplates) {
+    if (template.triggers.condition(applicantData)) {
+      const variables = template.triggers.variables(applicantData);
+      const question = processTemplate(template.questionTemplate, variables);
+
+      questions.push({
+        category: template.category,
+        question: question,
+        purpose: template.purpose,
+        type: template.type || "개념확인",
+      });
+    }
+  }
+
+  // 최소 1개의 질문 보장
+  if (questions.length === 0) {
+    questions.push({
+      category: "기술",
+      question:
+        "주요 개발 기술과 프로젝트 경험에 대해 구체적으로 설명해주세요.",
+      purpose: "기술 역량 종합 확인",
+      type: "개념확인",
+    });
+  }
+
+  return questions;
+}
+
+// 인성 면접 질문 생성 함수
+async function generatePersonalityQuestions(applicantData: ApplicantData) {
+  const questions = [];
+
+  for (const template of personalityQuestionTemplates) {
+    if (template.triggers.condition(applicantData)) {
+      const variables = template.triggers.variables(applicantData);
+      const question = processTemplate(template.questionTemplate, variables);
+
+      questions.push({
+        category: template.category,
+        question: question,
+        purpose: template.purpose,
+        basedOn: template.basedOn || "일반적 평가",
+      });
+    }
+  }
+
+  // 최소 1개의 질문 보장
+  if (questions.length === 0) {
+    questions.push({
+      category: "협업",
+      question: "팀 프로젝트에서 어려웠던 상황과 해결 방법을 공유해주세요.",
+      purpose: "협업 능력 확인",
+      basedOn: "일반적 평가",
+    });
+  }
+
+  return questions;
+}
+
+// 후속 질문 생성 함수
+async function generateFollowUpQuestions(applicantData: ApplicantData) {
+  const questions = [];
+
+  for (const template of followUpQuestionTemplates) {
+    if (template.triggers.condition(applicantData)) {
+      const variables = template.triggers.variables(applicantData);
+      const question = processTemplate(template.questionTemplate, variables);
+
+      questions.push({
+        category: template.type || "추가확인",
+        question: question,
+        purpose: template.purpose,
+      });
+    }
+  }
+
+  // 최소 1개의 질문 보장
+  if (questions.length === 0) {
+    questions.push({
+      category: "종합평가",
+      question: "마지막으로 본인의 강점과 개발자로서의 목표를 말씀해주세요.",
+      purpose: "종합적 역량 확인",
+    });
+  }
+
+  return questions;
+}
+
 export async function generateInterviewQuestions(applicantData: ApplicantData) {
   try {
-    console.log("템플릿 기반 면접 질문 생성 시작");
+    // 기술 면접 질문 생성
+    const technicalQuestions = await generateTechnicalQuestions(applicantData);
 
-    const result = {
-      technical: [] as any[],
-      personality: [] as any[],
-      followUp: [] as any[],
-    };
-
-    // 기술 질문 생성
-    console.log("기술 질문 생성 중...");
-    for (const template of technicalQuestionTemplates) {
-      if (template.triggers.condition(applicantData)) {
-        const variables = template.triggers.variables(applicantData);
-        const question = processTemplate(template.questionTemplate, variables);
-
-        result.technical.push({
-          category: template.category,
-          question: question,
-          purpose: template.purpose,
-          type: template.type || "개념확인",
-        });
-      }
-    }
-
-    // 인성 질문 생성
-    console.log("인성 질문 생성 중...");
-    for (const template of personalityQuestionTemplates) {
-      if (template.triggers.condition(applicantData)) {
-        const variables = template.triggers.variables(applicantData);
-        const question = processTemplate(template.questionTemplate, variables);
-
-        result.personality.push({
-          category: template.category,
-          question: question,
-          purpose: template.purpose,
-          basedOn: template.basedOn || "일반적 평가",
-        });
-      }
-    }
+    // 인성 면접 질문 생성
+    const personalityQuestions = await generatePersonalityQuestions(
+      applicantData
+    );
 
     // 후속 질문 생성
-    console.log("후속 질문 생성 중...");
-    for (const template of followUpQuestionTemplates) {
-      if (template.triggers.condition(applicantData)) {
-        const variables = template.triggers.variables(applicantData);
-        const question = processTemplate(template.questionTemplate, variables);
+    const followUpQuestions = await generateFollowUpQuestions(applicantData);
 
-        result.followUp.push({
-          type: template.type || "추가확인",
-          question: question,
-          purpose: template.purpose,
-        });
-      }
-    }
+    // 각 질문 객체를 문자열로 변환
+    const formatQuestion = (q: any) =>
+      `[${q.category}] ${q.question} (목적: ${q.purpose})`;
 
-    // 최소 질문 수 보장
-    if (result.technical.length === 0) {
-      result.technical.push({
-        category: "기술",
-        question:
-          "주요 개발 기술과 프로젝트 경험에 대해 구체적으로 설명해주세요.",
-        purpose: "기술 역량 종합 확인",
-        type: "개념확인",
-      });
-    }
-
-    if (result.personality.length === 0) {
-      result.personality.push({
-        category: "협업",
-        question: "팀 프로젝트에서 어려웠던 상황과 해결 방법을 공유해주세요.",
-        purpose: "협업 능력 확인",
-        basedOn: "일반적 평가",
-      });
-    }
-
-    if (result.followUp.length === 0) {
-      result.followUp.push({
-        type: "종합평가",
-        question: "마지막으로 본인의 강점과 개발자로서의 목표를 말씀해주세요.",
-        purpose: "종합적 역량 확인",
-      });
-    }
-
-    console.log("템플릿 기반 면접 질문 생성 완료:", {
-      technical: result.technical.length,
-      personality: result.personality.length,
-      followUp: result.followUp.length,
-    });
-
-    return result;
-  } catch (error) {
-    console.error("템플릿 기반 질문 생성 중 오류:", error);
-
-    // 최종 폴백 - 기본 질문들
     return {
-      technical: [
-        {
-          category: "기술",
-          question: "가장 자신 있는 프로그래밍 언어와 그 이유를 설명해주세요.",
-          purpose: "기술 역량 확인",
-          type: "개념확인",
-        },
-        {
-          category: "기술",
-          question:
-            "최근 진행한 프로젝트에서 기술적으로 도전적이었던 부분을 설명해주세요.",
-          purpose: "문제 해결 능력 확인",
-          type: "경험확인",
-        },
-      ],
-      personality: [
-        {
-          category: "협업",
-          question: "팀워크가 중요한 상황에서의 경험을 공유해주세요.",
-          purpose: "협업 능력 확인",
-          basedOn: "일반적 평가",
-        },
-        {
-          category: "책임감",
-          question: "업무에 대한 책임감을 보여준 사례를 말씀해주세요.",
-          purpose: "책임감 확인",
-          basedOn: "일반적 평가",
-        },
-      ],
-      followUp: [
-        {
-          type: "성장계획",
-          question: "개발자로서의 장기적인 목표와 계획을 말씀해주세요.",
-          purpose: "성장 가능성 확인",
-        },
-      ],
+      technical: technicalQuestions.map(formatQuestion),
+      personality: personalityQuestions.map(formatQuestion),
+      followUp: followUpQuestions.map(formatQuestion),
+    };
+  } catch (error) {
+    console.error("면접 질문 생성 중 오류:", error);
+    return {
+      technical: [],
+      personality: [],
+      followUp: [],
     };
   }
 }

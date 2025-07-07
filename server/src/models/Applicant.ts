@@ -71,48 +71,34 @@ export interface IApplicant extends Document {
 
   // AI 생성 리포트
   aiReport?: {
-    report: {
-      technicalAnalysis: {
-        overallLevel: string;
-        detailedAssessment: string;
-        strengths: string;
-        weaknesses: string;
-        timeEfficiency: string;
-      };
-      personalityAnalysis: {
-        cooperation: string;
-        responsibility: string;
-        leadership: string;
-        organizationFit: string;
-        growthPotential: string;
-      };
-      overallAssessment: {
-        recommendation: "high" | "medium" | "low";
-        comprehensiveEvaluation: string;
-        keyStrengths: string;
-        developmentAreas: string;
-      };
-      interviewFocus: {
-        technicalQuestions: string;
-        personalityQuestions: string;
-      };
+    technicalAnalysis: {
+      overallLevel: string;
+      detailedAssessment: string;
+      strengths: string;
+      weaknesses: string;
+      timeEfficiency: string;
+    };
+    personalityAnalysis: {
+      cooperation: string;
+      responsibility: string;
+      leadership: string;
+      organizationFit: string;
+      growthPotential: string;
+    };
+    overallAssessment: {
+      recommendation: "high" | "medium" | "low";
+      comprehensiveEvaluation: string;
+      keyStrengths: string;
+      developmentAreas: string;
+    };
+    interviewFocus: {
+      technicalQuestions: string;
+      personalityQuestions: string;
     };
     interviewQuestions: {
-      technical: Array<{
-        category: string;
-        question: string;
-        purpose: string;
-      }>;
-      personality: Array<{
-        category: string;
-        question: string;
-        purpose: string;
-      }>;
-      followUp: Array<{
-        type: string;
-        question: string;
-        purpose: string;
-      }>;
+      technical: string[];
+      personality: string[];
+      followUp: string[];
     };
     generatedAt: Date;
     modelUsed: string;
@@ -222,57 +208,37 @@ const ApplicantSchema = new Schema<IApplicant>(
 
     // AI 생성 리포트
     aiReport: {
-      report: {
-        technicalAnalysis: {
-          overallLevel: String,
-          detailedAssessment: String,
-          strengths: String,
-          weaknesses: String,
-          timeEfficiency: String,
+      technicalAnalysis: {
+        overallLevel: String,
+        detailedAssessment: String,
+        strengths: String,
+        weaknesses: String,
+        timeEfficiency: String,
+      },
+      personalityAnalysis: {
+        cooperation: String,
+        responsibility: String,
+        leadership: String,
+        organizationFit: String,
+        growthPotential: String,
+      },
+      overallAssessment: {
+        recommendation: {
+          type: String,
+          enum: ["high", "medium", "low"],
         },
-        personalityAnalysis: {
-          cooperation: String,
-          responsibility: String,
-          leadership: String,
-          organizationFit: String,
-          growthPotential: String,
-        },
-        overallAssessment: {
-          recommendation: {
-            type: String,
-            enum: ["high", "medium", "low"],
-          },
-          comprehensiveEvaluation: String,
-          keyStrengths: String,
-          developmentAreas: String,
-        },
-        interviewFocus: {
-          technicalQuestions: String,
-          personalityQuestions: String,
-        },
+        comprehensiveEvaluation: String,
+        keyStrengths: String,
+        developmentAreas: String,
+      },
+      interviewFocus: {
+        technicalQuestions: String,
+        personalityQuestions: String,
       },
       interviewQuestions: {
-        technical: [
-          {
-            category: String,
-            question: String,
-            purpose: String,
-          },
-        ],
-        personality: [
-          {
-            category: String,
-            question: String,
-            purpose: String,
-          },
-        ],
-        followUp: [
-          {
-            type: String,
-            question: String,
-            purpose: String,
-          },
-        ],
+        technical: [String],
+        personality: [String],
+        followUp: [String],
       },
       generatedAt: Date,
       modelUsed: String,

@@ -20,12 +20,18 @@ const InterviewTab: React.FC<InterviewTabProps> = ({
     setError("");
 
     try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        throw new Error("관리자 인증이 필요합니다.");
+      }
+
       const response = await fetch(
-        `/api/applicants/${applicant._id}/interview-questions/regenerate`,
+        `/api/admin/applicants/${applicant._id}/regenerate-interview-questions`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ type }),
         }

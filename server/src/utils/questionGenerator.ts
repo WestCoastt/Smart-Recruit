@@ -341,261 +341,40 @@ const getRandomQuestion = (templates: string[]): string => {
 };
 
 // 실제 틀린 문제 기반 질문 생성 함수
-const generateSpecificQuestions = (wrongQuestions: WrongQuestionInfo[]) => {
-  const questions: any[] = [];
+const generateSpecificQuestions = (
+  wrongQuestions: WrongQuestionInfo[]
+): string[] => {
+  const questions: string[] = [];
 
-  wrongQuestions.forEach((wrongQ, index) => {
-    if (index >= 3) return; // 최대 3개까지만
+  // 틀린 문제별 질문 생성
+  wrongQuestions.forEach((wrongQuestion) => {
+    const keywords = extractKeywords(
+      wrongQuestion.question,
+      wrongQuestion.correctAnswer
+    );
+    const actualAnswer = extractActualAnswer(wrongQuestion.correctAnswer);
 
-    const keywords = extractKeywords(wrongQ.question, wrongQ.correctAnswer);
-    const actualAnswer = extractActualAnswer(wrongQ.correctAnswer);
+    // 기본 질문 추가
+    questions.push(
+      `[${wrongQuestion.category}] ${wrongQuestion.question}에 대해 설명해주세요. 특히 ${actualAnswer}에 대해 자세히 설명해주세요.`
+    );
 
-    // 문제 유형에 따른 구체적 질문 생성
-    if (wrongQ.category === "Database") {
-      let selectedQuestion = "";
-      let purpose = "";
+    // 키워드별 추가 질문
+    keywords.forEach((keyword) => {
+      questions.push(
+        `[${wrongQuestion.category}] ${keyword}와 관련하여, 실제 프로젝트에서 어떻게 활용하셨나요?`
+      );
+    });
 
-      if (
-        wrongQ.question.includes("트랜잭션") ||
-        actualAnswer.toLowerCase().includes("rollback")
-      ) {
-        selectedQuestion = getRandomQuestion(
-          questionTemplates.database.transaction
-        );
-        purpose = "트랜잭션 관리 이해도 확인";
-      } else if (wrongQ.question.includes("인덱스")) {
-        selectedQuestion = getRandomQuestion(questionTemplates.database.index);
-        purpose = "인덱스 설계 이해도 확인";
-      } else if (
-        wrongQ.question.includes("정규화") ||
-        wrongQ.question.includes("normalization")
-      ) {
-        selectedQuestion = getRandomQuestion(
-          questionTemplates.database.normalization
-        );
-        purpose = "데이터베이스 정규화 이해도 확인";
-      } else if (
-        wrongQ.question.includes("조인") ||
-        wrongQ.question.includes("join")
-      ) {
-        selectedQuestion = getRandomQuestion(questionTemplates.database.join);
-        purpose = "SQL JOIN 이해도 확인";
-      } else if (
-        wrongQ.question.includes("키") ||
-        wrongQ.question.includes("key")
-      ) {
-        selectedQuestion = getRandomQuestion(questionTemplates.database.key);
-        purpose = "데이터베이스 키 설계 이해도 확인";
-      } else {
-        // 단순 알파벳이거나 기타 경우
-        if (actualAnswer.length === 1 && /^[A-Z]$/.test(actualAnswer)) {
-          console.log(
-            `[DEBUG] Database 카테고리에서 단순 알파벳 발견: ${actualAnswer}, 랜덤 질문 선택`
-          );
-          // 랜덤하게 다양한 데이터베이스 질문 중 선택
-          const allDbQuestions = [
-            ...questionTemplates.database.transaction,
-            ...questionTemplates.database.index,
-            ...questionTemplates.database.normalization,
-            ...questionTemplates.database.join,
-            ...questionTemplates.database.key,
-          ];
-          selectedQuestion = getRandomQuestion(allDbQuestions);
-          purpose = "데이터베이스 종합 이해도 확인";
-        } else {
-          selectedQuestion = `'${actualAnswer}' 개념에 대해 실무에서 어떻게 활용하고 계신가요? 관련된 경험을 공유해주세요.`;
-          purpose = "데이터베이스 실무 경험 확인";
-        }
-      }
-
-      questions.push({
-        category: "Database",
-        question: selectedQuestion,
-        purpose: purpose,
-        type: "개념확인",
-        basedOn: `틀린 문제: ${wrongQ.question.substring(0, 50)}...`,
-      });
-    } else if (wrongQ.category === "Java") {
-      let selectedQuestion = "";
-      let purpose = "";
-
-      if (
-        wrongQ.question.includes("예외") ||
-        actualAnswer.toLowerCase().includes("try")
-      ) {
-        selectedQuestion = getRandomQuestion(questionTemplates.java.exception);
-        purpose = "Java 예외 처리 이해도 확인";
-      } else if (wrongQ.question.includes("synchronized")) {
-        selectedQuestion = getRandomQuestion(
-          questionTemplates.java.synchronized
-        );
-        purpose = "Java 동기화 이해도 확인";
-      } else if (wrongQ.question.includes("final")) {
-        selectedQuestion = getRandomQuestion(questionTemplates.java.final);
-        purpose = "Java final 키워드 이해도 확인";
-      } else if (
-        wrongQ.question.includes("상속") ||
-        wrongQ.question.includes("extends")
-      ) {
-        selectedQuestion = getRandomQuestion(
-          questionTemplates.java.inheritance
-        );
-        purpose = "Java 상속 개념 이해도 확인";
-      } else if (
-        wrongQ.question.includes("인터페이스") ||
-        wrongQ.question.includes("interface")
-      ) {
-        selectedQuestion = getRandomQuestion(questionTemplates.java.interface);
-        purpose = "Java 인터페이스 이해도 확인";
-      } else if (
-        wrongQ.question.includes("컬렉션") ||
-        wrongQ.question.includes("collection")
-      ) {
-        selectedQuestion = getRandomQuestion(questionTemplates.java.collection);
-        purpose = "Java 컬렉션 이해도 확인";
-      } else {
-        // 단순 알파벳이거나 기타 경우
-        if (actualAnswer.length === 1 && /^[A-Z]$/.test(actualAnswer)) {
-          console.log(
-            `[DEBUG] Java 카테고리에서 단순 알파벳 발견: ${actualAnswer}, 랜덤 질문 선택`
-          );
-          // 랜덤하게 다양한 Java 질문 중 선택
-          const allJavaQuestions = [
-            ...questionTemplates.java.exception,
-            ...questionTemplates.java.synchronized,
-            ...questionTemplates.java.final,
-            ...questionTemplates.java.inheritance,
-            ...questionTemplates.java.interface,
-            ...questionTemplates.java.collection,
-          ];
-          selectedQuestion = getRandomQuestion(allJavaQuestions);
-          purpose = "Java 종합 이해도 확인";
-        } else {
-          selectedQuestion = `'${actualAnswer}' 개념을 프로젝트에서 실제로 어떻게 적용해보셨나요?`;
-          purpose = "Java 실무 적용 경험 확인";
-        }
-      }
-
-      questions.push({
-        category: "Java",
-        question: selectedQuestion,
-        purpose: purpose,
-        type: "개념확인",
-        basedOn: `틀린 문제: ${wrongQ.question.substring(0, 50)}...`,
-      });
-    } else if (wrongQ.category === "Network") {
-      if (
-        actualAnswer.toLowerCase().includes("tcp") ||
-        actualAnswer.toLowerCase().includes("udp")
-      ) {
-        questions.push({
-          category: "Network",
-          question: `TCP와 UDP의 차이점과 각각 어떤 상황에서 사용하는 것이 적합한지 실무 경험을 바탕으로 설명해주세요.`,
-          purpose: "네트워크 프로토콜 이해도 확인",
-          type: "개념확인",
-          basedOn: `틀린 문제: ${wrongQ.question.substring(0, 50)}...`,
-        });
-      } else {
-        // 단순 알파벳인 경우 문제 내용에서 키워드 추출하여 질문 생성
-        if (actualAnswer.length === 1 && /^[A-Z]$/.test(actualAnswer)) {
-          console.log(
-            `[DEBUG] Network 카테고리에서 단순 알파벳 발견: ${actualAnswer}, 문제 내용 분석`
-          );
-
-          questions.push({
-            category: "Network",
-            question: `네트워크 설계나 문제 해결에서 가장 어려웠던 경험과 해결 과정을 공유해주세요.`,
-            purpose: "네트워크 문제 해결 경험 확인",
-            type: "경험확인",
-            basedOn: `틀린 문제: ${wrongQ.question.substring(0, 50)}...`,
-          });
-        } else {
-          questions.push({
-            category: "Network",
-            question: `'${actualAnswer}' 개념과 관련된 네트워크 이슈를 해결해본 경험이 있나요?`,
-            purpose: "네트워크 문제 해결 경험 확인",
-            type: "경험확인",
-            basedOn: `틀린 문제: ${wrongQ.question.substring(0, 50)}...`,
-          });
-        }
-      }
-    } else if (wrongQ.category === "Security") {
-      let selectedQuestion = "";
-      let purpose = "";
-
-      if (
-        wrongQ.question.includes("암호화") ||
-        actualAnswer.toLowerCase().includes("encrypt")
-      ) {
-        selectedQuestion = getRandomQuestion(
-          questionTemplates.security.encryption
-        );
-        purpose = "보안 암호화 구현 경험 확인";
-      } else if (
-        wrongQ.question.includes("인증") ||
-        actualAnswer.toLowerCase().includes("auth")
-      ) {
-        selectedQuestion = getRandomQuestion(
-          questionTemplates.security.authentication
-        );
-        purpose = "보안 인증 시스템 이해도 확인";
-      } else if (
-        wrongQ.question.includes("해시") ||
-        actualAnswer.toLowerCase().includes("hash")
-      ) {
-        selectedQuestion = getRandomQuestion(questionTemplates.security.hash);
-        purpose = "보안 해싱 이해도 확인";
-      } else {
-        // 단순 알파벳이거나 기타 경우
-        if (actualAnswer.length === 1 && /^[A-Z]$/.test(actualAnswer)) {
-          console.log(
-            `[DEBUG] Security 카테고리에서 단순 알파벳 발견: ${actualAnswer}, 랜덤 질문 선택`
-          );
-
-          // 랜덤하게 다양한 Security 질문 중 선택
-          const allSecurityQuestions = [
-            ...questionTemplates.security.encryption,
-            ...questionTemplates.security.authentication,
-            ...questionTemplates.security.hash,
-          ];
-          selectedQuestion = getRandomQuestion(allSecurityQuestions);
-          purpose = "보안 종합 이해도 확인";
-        } else {
-          selectedQuestion = `보안 분야에서 '${actualAnswer}' 개념이 왜 중요한지 설명하고, 실무에서 이를 적용한 경험을 공유해주세요.`;
-          purpose = "보안 개념 이해도 확인";
-        }
-      }
-
-      questions.push({
-        category: "Security",
-        question: selectedQuestion,
-        purpose: purpose,
-        type: "개념확인",
-        basedOn: `틀린 문제: ${wrongQ.question.substring(0, 50)}...`,
-      });
+    // 문제 유형별 추가 질문
+    if (wrongQuestion.type === "multiple-choice") {
+      questions.push(
+        `[${wrongQuestion.category}] 이 문제의 다른 보기들과 비교하여, 정답이 ${actualAnswer}인 이유를 설명해주세요.`
+      );
     } else {
-      // 기타 카테고리
-      if (actualAnswer.length === 1 && /^[A-Z]$/.test(actualAnswer)) {
-        console.log(
-          `[DEBUG] ${wrongQ.category} 카테고리에서 단순 알파벳 발견: ${actualAnswer}, 문제 내용 분석`
-        );
-
-        questions.push({
-          category: wrongQ.category,
-          question: `${wrongQ.category} 영역에서 가장 중요하다고 생각하는 개념과 실무 적용 경험을 공유해주세요.`,
-          purpose: `${wrongQ.category} 개념 이해도 확인`,
-          type: "개념확인",
-          basedOn: `틀린 문제: ${wrongQ.question.substring(0, 50)}...`,
-        });
-      } else {
-        questions.push({
-          category: wrongQ.category,
-          question: `${wrongQ.category} 영역에서 '${actualAnswer}' 개념에 대해 더 자세히 설명해주시고, 실무에서의 활용 경험을 공유해주세요.`,
-          purpose: `${wrongQ.category} 개념 이해도 확인`,
-          type: "개념확인",
-          basedOn: `틀린 문제: ${wrongQ.question.substring(0, 50)}...`,
-        });
-      }
+      questions.push(
+        `[${wrongQuestion.category}] ${wrongQuestion.question}와 관련된 다른 개념들과의 관계를 설명해주세요.`
+      );
     }
   });
 
@@ -744,20 +523,21 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
     }
 
     const result = {
-      technical: [] as any[],
-      personality: [] as any[],
-      followUp: [] as any[],
+      technical: [] as string[],
+      personality: [] as string[],
+      followUp: [] as string[],
     };
 
     // 실제 틀린 문제 기반 기술 질문 생성
     if (wrongQuestions.length > 0) {
       const specificQuestions = generateSpecificQuestions(wrongQuestions);
-      result.technical.push(...specificQuestions);
+      result.technical.push(
+        ...specificQuestions.map((q) => `[${q.category}] ${q.question}`)
+      );
 
       console.log("실제 틀린 문제 기반 질문 생성 완료:");
-      specificQuestions.forEach((q) => {
-        console.log(`- ${q.category}: ${q.question.substring(0, 50)}...`);
-        console.log(`  (기반: ${q.basedOn})`);
+      result.technical.forEach((q) => {
+        console.log(`- ${q.substring(0, 50)}...`);
       });
     }
 
@@ -767,13 +547,7 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
       if (template.triggers.condition(applicantData)) {
         const variables = template.triggers.variables();
         const question = processTemplate(template.questionTemplate, variables);
-
-        result.personality.push({
-          category: template.category,
-          question: question,
-          purpose: template.purpose,
-          basedOn: template.basedOn || "일반적 평가",
-        });
+        result.personality.push(`[${template.category}] ${question}`);
 
         console.log(
           `인성 질문 추가: ${template.category} - ${question.substring(
@@ -790,12 +564,7 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
       if (template.triggers.condition()) {
         const variables = template.triggers.variables();
         const question = processTemplate(template.questionTemplate, variables);
-
-        result.followUp.push({
-          type: template.type || "추가확인",
-          question: question,
-          purpose: template.purpose,
-        });
+        result.followUp.push(`[${template.type || "추가확인"}] ${question}`);
 
         console.log(
           `후속 질문 추가: ${template.type} - ${question.substring(0, 50)}...`
@@ -805,32 +574,23 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
 
     // 최소 질문 수 보장
     if (result.technical.length === 0) {
-      result.technical.push({
-        category: "기술",
-        question:
-          "주요 개발 기술과 프로젝트 경험에 대해 구체적으로 설명해주세요.",
-        purpose: "기술 역량 종합 확인",
-        type: "개념확인",
-      });
+      result.technical.push(
+        "[기술] 주요 개발 기술과 프로젝트 경험에 대해 구체적으로 설명해주세요."
+      );
       console.log("기본 기술 질문 추가");
     }
 
     if (result.personality.length === 0) {
-      result.personality.push({
-        category: "협업",
-        question: "팀 프로젝트에서 어려웠던 상황과 해결 방법을 공유해주세요.",
-        purpose: "협업 능력 확인",
-        basedOn: "일반적 평가",
-      });
+      result.personality.push(
+        "[협업] 팀 프로젝트에서 어려웠던 상황과 해결 방법을 공유해주세요."
+      );
       console.log("기본 인성 질문 추가");
     }
 
     if (result.followUp.length === 0) {
-      result.followUp.push({
-        type: "종합평가",
-        question: "마지막으로 본인의 강점과 개발자로서의 목표를 말씀해주세요.",
-        purpose: "종합적 역량 확인",
-      });
+      result.followUp.push(
+        "[종합평가] 마지막으로 본인의 강점과 개발자로서의 목표를 말씀해주세요."
+      );
       console.log("기본 후속 질문 추가");
     }
 
@@ -847,41 +607,14 @@ export async function generateInterviewQuestions(applicantData: ApplicantData) {
     // 최종 폴백 - 기본 질문들
     return {
       technical: [
-        {
-          category: "기술",
-          question: "가장 자신 있는 프로그래밍 언어와 그 이유를 설명해주세요.",
-          purpose: "기술 역량 확인",
-          type: "개념확인",
-        },
-        {
-          category: "기술",
-          question:
-            "최근 진행한 프로젝트에서 기술적으로 도전적이었던 부분을 설명해주세요.",
-          purpose: "문제 해결 능력 확인",
-          type: "경험확인",
-        },
+        "가장 자신 있는 프로그래밍 언어와 그 이유를 설명해주세요.",
+        "최근 진행한 프로젝트에서 기술적으로 도전적이었던 부분을 설명해주세요.",
       ],
       personality: [
-        {
-          category: "협업",
-          question: "팀워크가 중요한 상황에서의 경험을 공유해주세요.",
-          purpose: "협업 능력 확인",
-          basedOn: "일반적 평가",
-        },
-        {
-          category: "책임감",
-          question: "업무에 대한 책임감을 보여준 사례를 말씀해주세요.",
-          purpose: "책임감 확인",
-          basedOn: "일반적 평가",
-        },
+        "팀워크가 중요한 상황에서의 경험을 공유해주세요.",
+        "업무에 대한 책임감을 보여준 사례를 말씀해주세요.",
       ],
-      followUp: [
-        {
-          type: "성장계획",
-          question: "개발자로서의 장기적인 목표와 계획을 말씀해주세요.",
-          purpose: "성장 가능성 확인",
-        },
-      ],
+      followUp: ["개발자로서의 장기적인 목표와 계획을 말씀해주세요."],
     };
   }
 }

@@ -211,3 +211,33 @@ export const regenerateInterviewQuestions = async (
 
   return response.json();
 };
+
+// AI 리포트 재생성
+export const regenerateAIReport = async (
+  applicantId: string
+): Promise<ApiResponse> => {
+  const adminToken = localStorage.getItem("adminToken");
+  if (!adminToken) {
+    throw new Error("관리자 인증이 필요합니다.");
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/admin/applicants/${applicantId}/regenerate-ai-report`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      credentials: "include",
+    }
+  );
+
+  const result: ApiResponse = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "서버 오류가 발생했습니다.");
+  }
+
+  return result;
+};
