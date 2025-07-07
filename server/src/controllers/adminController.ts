@@ -213,27 +213,6 @@ export const verifyToken = async (
   }
 };
 
-// 초기 관리자 계정 생성 (개발용)
-export const createDefaultAdmin = async (): Promise<void> => {
-  try {
-    const existingAdmin = await Admin.findOne({ username: "admin" });
-
-    if (!existingAdmin) {
-      const defaultAdmin = new Admin({
-        username: "admin",
-        password: "admin123", // 실제 운영에서는 더 강력한 비밀번호 사용
-        email: "admin@smart-recruit.com",
-      });
-
-      await defaultAdmin.save();
-      console.log("기본 관리자 계정이 생성되었습니다.");
-      console.log("아이디: admin, 비밀번호: admin123");
-    }
-  } catch (error) {
-    console.error("기본 관리자 계정 생성 오류:", error);
-  }
-};
-
 // 지원자 목록 조회
 export const getApplicants = async (
   req: Request,
@@ -271,7 +250,7 @@ export const getApplicants = async (
     // 지원자 목록 조회
     const applicants = await Applicant.find(searchCondition)
       .select(
-        "name email phone technicalTest.score technicalTest.maxScore personalityTest.scores.total createdAt cheatingDetected"
+        "name email phone technicalTest.score technicalTest.maxScore personalityTest.scores.total createdAt cheatingDetected aiReport.report.overallAssessment.recommendation"
       )
       .sort(sortCondition)
       .skip(skip)
@@ -291,6 +270,8 @@ export const getApplicants = async (
       personalityScore: applicant.personalityTest?.scores?.total || 0,
       createdAt: applicant.createdAt,
       hasAiReport: !!applicant.aiReport,
+      recommendation:
+        applicant.aiReport?.report?.overallAssessment?.recommendation || null,
       cheatingDetected: applicant.cheatingDetected || { isCheating: false },
     }));
 

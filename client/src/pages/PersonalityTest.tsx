@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  getPersonalityTestQuestions,
-  submitPersonalityTest,
-} from "../utils/api";
+import { getPersonalityTestQuestions } from "../utils/api";
 import type { PersonalityQuestion, PersonalityTestData } from "../types";
 
 interface PersonalityTestProps {
@@ -22,6 +19,7 @@ const PersonalityTest: React.FC<PersonalityTestProps> = ({ applicantId }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTestEnded, setIsTestEnded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   // 현재 문항
   const currentQuestion = questions[currentQuestionIndex];
@@ -74,8 +72,7 @@ const PersonalityTest: React.FC<PersonalityTestProps> = ({ applicantId }) => {
         } else {
           throw new Error("문항을 불러올 수 없습니다.");
         }
-      } catch (error) {
-        console.error("문항 로드 실패:", error);
+      } catch {
         alert("문항을 불러오는 중 오류가 발생했습니다.");
         navigate(`/personality-instructions/${applicantId}`);
       } finally {
@@ -125,58 +122,40 @@ const PersonalityTest: React.FC<PersonalityTestProps> = ({ applicantId }) => {
   };
 
   // 테스트 제출
-  const submitTest = async () => {
-    if (isSubmitting) return;
+  const handleSubmit = async () => {
+    if (!applicantId) return;
 
-    const unansweredQuestions = questions
-      .filter((q) => !answers[q._id])
-      .map((q) => questions.indexOf(q) + 1);
+    setIsSubmitting(true);
+    setError("");
 
-    if (unansweredQuestions.length > 0) {
-      const confirmSubmit = window.confirm(
-        `다음 문항이 미완료입니다: ${unansweredQuestions.join(
-          ", "
-        )}번\n\n그래도 제출하시겠습니까?`
-      );
-      if (!confirmSubmit) return;
-    }
-
-    const confirmFinalSubmit = window.confirm(
-      "정말로 제출하시겠습니까?\n제출 후에는 수정할 수 없습니다."
-    );
-
-    if (confirmFinalSubmit) {
-      setIsSubmitting(true);
-
-      try {
-        // 전체 소요시간 계산 (초 단위)
-        const totalTime = Math.round((Date.now() - testStartTime) / 1000);
-
-        console.log("=== 인성 테스트 제출 데이터 ===");
-        console.log("applicantId:", applicantId);
-        console.log("answers:", answers);
-        console.log("totalTime:", totalTime);
-        console.log("answers 키 개수:", Object.keys(answers).length);
-
-        // 서버로 제출
-        const response = await submitPersonalityTest(
-          applicantId,
-          answers,
-          totalTime
-        );
-
-        if (response.success) {
-          // 평가 완료 페이지로 이동
-          navigate(`/evaluation-complete/${applicantId}`, { replace: true });
-        } else {
-          throw new Error(response.message || "제출에 실패했습니다.");
+    try {
+      const response = await fetch(
+        `/api/personality-test/${applicantId}/submit`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            answers,
+            totalTime: Math.round((Date.now() - testStartTime) / 1000), // Convert to seconds
+          }),
         }
-      } catch (error) {
-        console.error("테스트 제출 오류:", error);
-        alert("테스트 제출 중 오류가 발생했습니다. 다시 시도해주세요.");
-      } finally {
-        setIsSubmitting(false);
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "제출에 실패했습니다.");
       }
+
+      navigate(`/evaluation-complete/${applicantId}`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "제출 중 오류가 발생했습니다."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -221,7 +200,7 @@ const PersonalityTest: React.FC<PersonalityTestProps> = ({ applicantId }) => {
               </div>
               {/* 헤더 제출 버튼 */}
               <button
-                onClick={submitTest}
+                onClick={handleSubmit}
                 disabled={isSubmitting}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
               >
@@ -364,7 +343,7 @@ const PersonalityTest: React.FC<PersonalityTestProps> = ({ applicantId }) => {
                     </button>
                   ) : (
                     <button
-                      onClick={submitTest}
+                      onClick={handleSubmit}
                       disabled={isSubmitting}
                       className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
@@ -377,6 +356,12 @@ const PersonalityTest: React.FC<PersonalityTestProps> = ({ applicantId }) => {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+          {error}
+        </div>
+      )}
     </div>
   );
 };

@@ -68,16 +68,13 @@ const ApplicantDetail: React.FC = () => {
         return;
       }
 
-      const data = await response.json();
-
-      if (data.success) {
-        console.log("지원자 데이터:", data.data);
+      if (response.ok) {
+        const data = await response.json();
         setApplicant(data.data);
       } else {
-        setError(data.message || "지원자 정보를 불러오는데 실패했습니다.");
+        setError("지원자 정보를 불러오는데 실패했습니다.");
       }
-    } catch (error) {
-      console.error("지원자 상세 정보 조회 오류:", error);
+    } catch {
       setError("서버 연결에 실패했습니다.");
     } finally {
       setLoading(false);

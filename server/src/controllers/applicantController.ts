@@ -34,6 +34,24 @@ const checkShortAnswer = (
   });
 };
 
+// 추천 등급 결정 함수
+const determineRecommendationLevel = (
+  technicalScore: number,
+  technicalMaxScore: number,
+  personalityScore: number
+): "high" | null => {
+  if (!technicalScore || !personalityScore) return null;
+
+  const technicalPercentage = (technicalScore / technicalMaxScore) * 100;
+
+  // 기술점수 80% 이상 && 인성점수 85점 이상인 경우만 추천인재로 선정
+  if (technicalPercentage >= 80 && personalityScore >= 85) {
+    return "high";
+  }
+
+  return null;
+};
+
 // 지원자 정보 저장
 export const createApplicant = async (req: Request, res: Response) => {
   try {
@@ -369,21 +387,76 @@ export const resetTechnicalTest = async (req: Request, res: Response) => {
 // 지원자 목록 조회
 export const getApplicants = async (req: Request, res: Response) => {
   try {
-    const applicants = await Applicant.find()
-      .select(
-        "name email phone createdAt technicalTest.score technicalTest.maxScore"
-      )
-      .sort({ createdAt: -1 });
+    const {
+      page = "1",
+      limit = "50",
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      search,
+    } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    let query: any = {};
+
+    // 검색어가 있는 경우 검색 조건 추가
+    if (search) {
+      query.$or = [
+        { name: new RegExp(search as string, "i") },
+        { email: new RegExp(search as string, "i") },
+        { phone: new RegExp(search as string, "i") },
+      ];
+    }
+
+    const applicants = await Applicant.find(query)
+      .sort({ [sortBy as string]: sortOrder === "asc" ? 1 : -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    // 추천 등급 결정 및 데이터 가공
+    const processedApplicants = applicants.map((applicant) => {
+      const recommendation = determineRecommendationLevel(
+        applicant.technicalScore || 0,
+        applicant.technicalMaxScore || 100,
+        applicant.personalityScore || 0
+      );
+
+      return {
+        id: applicant._id,
+        name: applicant.name,
+        email: applicant.email,
+        phone: applicant.phone,
+        technicalScore: applicant.technicalScore || 0,
+        technicalMaxScore: applicant.technicalMaxScore || 100,
+        personalityScore: applicant.personalityScore || 0,
+        createdAt: applicant.createdAt,
+        hasAiReport: !!applicant.aiReport,
+        recommendation,
+        cheatingDetected: applicant.cheatingDetected,
+      };
+    });
+
+    // 전체 지원자 수 조회
+    const total = await Applicant.countDocuments(query);
 
     res.status(200).json({
       success: true,
-      data: applicants,
+      message: "지원자 목록을 성공적으로 조회했습니다.",
+      data: {
+        applicants: processedApplicants,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
     });
-  } catch (error: any) {
-    console.error("지원자 목록 조회 오류:", error);
+  } catch (error) {
+    console.error("지원자 목록 조회 중 오류:", error);
     res.status(500).json({
       success: false,
-      message: "지원자 목록 조회 중 오류가 발생했습니다.",
+      message: "서버 내부 오류가 발생했습니다.",
     });
   }
 };

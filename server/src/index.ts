@@ -6,8 +6,6 @@ import applicantsRouter from "./routes/applicants";
 import questionsRouter from "./routes/questions";
 import adminRouter from "./routes/admin";
 import personalityRouter from "./routes/personality";
-import { createDefaultAdmin } from "./controllers/adminController";
-
 // 환경 변수 로드
 dotenv.config();
 
@@ -103,13 +101,9 @@ app.use(
 const startServer = async () => {
   await connectDB();
 
-  // 기본 관리자 계정 생성
-  await createDefaultAdmin();
-
   app.listen(PORT, () => {
     console.log(`서버가 포트 ${PORT}에서 실행 중입니다.`);
     console.log(`API 문서: http://localhost:${PORT}`);
-    console.log("기본 관리자 계정: admin / admin123");
   });
 };
 

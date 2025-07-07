@@ -12,8 +12,7 @@ export const getStoredApplicantData = (): StoredApplicantData | null => {
   try {
     const stored = sessionStorage.getItem("applicantInfo");
     return stored ? JSON.parse(stored) : null;
-  } catch (error) {
-    console.error("지원자 정보 로드 실패:", error);
+  } catch {
     return null;
   }
 };
@@ -22,8 +21,8 @@ export const getStoredApplicantData = (): StoredApplicantData | null => {
 export const setStoredApplicantData = (data: StoredApplicantData): void => {
   try {
     sessionStorage.setItem("applicantInfo", JSON.stringify(data));
-  } catch (error) {
-    console.error("지원자 정보 저장 실패:", error);
+  } catch {
+    // 저장 실패 시 무시
   }
 };
 
@@ -31,8 +30,8 @@ export const setStoredApplicantData = (data: StoredApplicantData): void => {
 export const clearStoredApplicantData = (): void => {
   try {
     sessionStorage.removeItem("applicantInfo");
-  } catch (error) {
-    console.error("지원자 정보 삭제 실패:", error);
+  } catch {
+    // 삭제 실패 시 무시
   }
 };
 
@@ -54,101 +53,77 @@ export interface ApiResponse<T = unknown> {
 export const submitApplicantInfo = async (
   applicantData: ApplicantInfo
 ): Promise<ApiResponse> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/applicants`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(applicantData),
-    });
+  const response = await fetch(`${API_BASE_URL}/applicants`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(applicantData),
+  });
 
-    const result: ApiResponse = await response.json();
+  const result: ApiResponse = await response.json();
 
-    if (!response.ok) {
-      throw new Error(result.message || "서버 오류가 발생했습니다.");
-    }
-
-    return result;
-  } catch (error) {
-    console.error("API 요청 실패:", error);
-    throw error;
+  if (!response.ok) {
+    throw new Error(result.message || "서버 오류가 발생했습니다.");
   }
+
+  return result;
 };
 
 // 지원자 목록 조회 API (관리자용)
 export const getApplicants = async (): Promise<ApiResponse> => {
-  try {
-    const adminToken = localStorage.getItem("adminToken");
-    if (!adminToken) {
-      throw new Error("관리자 인증이 필요합니다.");
-    }
-
-    const response = await fetch(`${API_BASE_URL}/applicants`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
-      },
-      credentials: "include",
-    });
-
-    const result: ApiResponse = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "서버 오류가 발생했습니다.");
-    }
-
-    return result;
-  } catch (error) {
-    console.error("API 요청 실패:", error);
-    throw error;
+  const adminToken = localStorage.getItem("adminToken");
+  if (!adminToken) {
+    throw new Error("관리자 인증이 필요합니다.");
   }
+
+  const response = await fetch(`${API_BASE_URL}/applicants`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`,
+    },
+    credentials: "include",
+  });
+
+  const result: ApiResponse = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "서버 오류가 발생했습니다.");
+  }
+
+  return result;
 };
 
 // 특정 지원자 조회 API
 export const getApplicantById = async (id: string): Promise<ApiResponse> => {
-  try {
-    const adminToken = localStorage.getItem("adminToken");
-    if (!adminToken) {
-      throw new Error("관리자 인증이 필요합니다.");
-    }
-
-    const response = await fetch(`${API_BASE_URL}/applicants/${id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
-      },
-      credentials: "include",
-    });
-
-    const result: ApiResponse = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "서버 오류가 발생했습니다.");
-    }
-
-    return result;
-  } catch (error) {
-    console.error("API 요청 실패:", error);
-    throw error;
+  const adminToken = localStorage.getItem("adminToken");
+  if (!adminToken) {
+    throw new Error("관리자 인증이 필요합니다.");
   }
+
+  const response = await fetch(`${API_BASE_URL}/applicants/${id}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`,
+    },
+    credentials: "include",
+  });
+
+  const result: ApiResponse = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "서버 오류가 발생했습니다.");
+  }
+
+  return result;
 };
 
 // 기술 테스트 문제 조회
 export const getTechnicalTestQuestions = async (): Promise<ApiResponse> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/questions/technical-test`);
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("기술 테스트 문제 조회 오류:", error);
-    return {
-      success: false,
-      message: "기술 테스트 문제 조회 중 오류가 발생했습니다.",
-    };
-  }
+  const response = await fetch(`${API_BASE_URL}/questions/technical-test`);
+  return response.json();
 };
 
 // 기술 테스트 제출
@@ -158,61 +133,34 @@ export const submitTechnicalTest = async (
   questionTimes: { [questionId: string]: number },
   totalTime: number
 ): Promise<ApiResponse> => {
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/applicants/${applicantId}/technical-test`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          answers,
-          questionTimes,
-          totalTime,
-        }),
-      }
-    );
+  const response = await fetch(
+    `${API_BASE_URL}/applicants/${applicantId}/technical-test`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        answers,
+        questionTimes,
+        totalTime,
+      }),
+    }
+  );
 
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("기술 테스트 제출 오류:", error);
-    return {
-      success: false,
-      message: "기술 테스트 제출 중 오류가 발생했습니다.",
-    };
-  }
+  return response.json();
 };
 
 // 문제 통계 조회
 export const getQuestionStats = async (): Promise<ApiResponse> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/questions/stats`);
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("문제 통계 조회 오류:", error);
-    return {
-      success: false,
-      message: "문제 통계 조회 중 오류가 발생했습니다.",
-    };
-  }
+  const response = await fetch(`${API_BASE_URL}/questions/stats`);
+  return response.json();
 };
 
 // 인성 테스트 문항 조회
 export const getPersonalityTestQuestions = async (): Promise<ApiResponse> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/personality/questions`);
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("인성 테스트 문항 조회 오류:", error);
-    return {
-      success: false,
-      message: "인성 테스트 문항 조회 중 오류가 발생했습니다.",
-    };
-  }
+  const response = await fetch(`${API_BASE_URL}/personality/questions`);
+  return response.json();
 };
 
 // 인성 테스트 제출
@@ -221,30 +169,21 @@ export const submitPersonalityTest = async (
   answers: { [questionId: string]: number },
   totalTime: number
 ): Promise<ApiResponse> => {
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/personality/${applicantId}/submit`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          answers,
-          totalTime,
-        }),
-      }
-    );
+  const response = await fetch(
+    `${API_BASE_URL}/personality/${applicantId}/submit`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        answers,
+        totalTime,
+      }),
+    }
+  );
 
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("인성 테스트 제출 오류:", error);
-    return {
-      success: false,
-      message: "인성 테스트 제출 중 오류가 발생했습니다.",
-    };
-  }
+  return response.json();
 };
 
 // 면접 질문만 재생성 (기술/인성)
@@ -252,32 +191,23 @@ export const regenerateInterviewQuestions = async (
   applicantId: string,
   type: "technical" | "personality"
 ): Promise<ApiResponse> => {
-  try {
-    const adminToken = localStorage.getItem("adminToken");
-    if (!adminToken) {
-      throw new Error("관리자 인증이 필요합니다.");
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}/admin/applicants/${applicantId}/interview-questions`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
-        },
-        credentials: "include",
-        body: JSON.stringify({ type }),
-      }
-    );
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("면접 질문 재생성 오류:", error);
-    return {
-      success: false,
-      message: "면접 질문 재생성 중 오류가 발생했습니다.",
-    };
+  const adminToken = localStorage.getItem("adminToken");
+  if (!adminToken) {
+    throw new Error("관리자 인증이 필요합니다.");
   }
+
+  const response = await fetch(
+    `${API_BASE_URL}/admin/applicants/${applicantId}/interview-questions`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      credentials: "include",
+      body: JSON.stringify({ type }),
+    }
+  );
+
+  return response.json();
 };

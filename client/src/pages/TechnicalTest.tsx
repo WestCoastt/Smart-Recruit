@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import {
-  getTechnicalTestQuestions,
-  getStoredApplicantData,
-  submitTechnicalTest,
-} from "../utils/api";
+import { useNavigate } from "react-router-dom";
+import { getTechnicalTestQuestions } from "../utils/api";
 import type {
   Question,
   TechnicalTestData,
@@ -33,8 +29,9 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTestEnded, setIsTestEnded] = useState(false);
   const [violationCount, setViolationCount] = useState(0);
-  const [isShowingAlert, setIsShowingAlert] = useState(false); // alert/confirm 창 표시 중인지 추적
+  const [isShowingAlert, setIsShowingAlert] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   // 현재 문제
   const currentQuestion = questions[currentQuestionIndex];
@@ -60,8 +57,8 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
               testType: "technical",
             }),
           });
-        } catch (error) {
-          console.error("부정행위 기록 실패:", error);
+        } catch {
+          // 부정행위 기록 실패 시 무시
         }
       }
 
@@ -176,8 +173,7 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
         } else {
           throw new Error("문제를 불러올 수 없습니다.");
         }
-      } catch (error) {
-        console.error("문제 로드 실패:", error);
+      } catch {
         alert("문제를 불러오는 중 오류가 발생했습니다.");
         navigate(`/instructions/${applicantId}`);
       } finally {
@@ -252,92 +248,41 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
   };
 
   // 테스트 제출
-  const submitTest = async () => {
-    if (isSubmitting) return;
+  const handleSubmit = async () => {
+    if (!applicantId) return;
 
-    setIsShowingAlert(true); // alert/confirm 표시 시작
+    setIsSubmitting(true);
+    setError("");
 
-    const unansweredQuestions = questions
-      .filter((q) => !answers[q._id])
-      .map((q) => questions.indexOf(q) + 1);
-
-    if (unansweredQuestions.length > 0) {
-      const confirmSubmit = window.confirm(
-        `다음 문제가 미완료입니다: ${unansweredQuestions.join(
-          ", "
-        )}번\n\n그래도 제출하시겠습니까?`
+    try {
+      const response = await fetch(
+        `/api/technical-test/${applicantId}/submit`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            answers,
+            questionTimes: questionTimes,
+            totalTime: Math.round((Date.now() - testStartTime) / 1000), // Convert to seconds
+          }),
+        }
       );
-      if (!confirmSubmit) {
-        // confirm 창이 닫힌 후 약간의 지연을 두어 blur 이벤트 처리
-        setTimeout(() => {
-          setIsShowingAlert(false); // alert/confirm 표시 종료
-        }, 100);
-        return;
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "제출에 실패했습니다.");
       }
-    }
 
-    const confirmFinalSubmit = window.confirm(
-      "정말로 제출하시겠습니까?\n제출 후에는 수정할 수 없습니다."
-    );
-
-    if (confirmFinalSubmit) {
-      setIsSubmitting(true);
-
-      try {
-        // 현재 문제의 소요시간도 계산
-        const finalQuestionTimes = { ...questionTimes };
-        if (currentQuestion && questionStartTimes[currentQuestion._id]) {
-          const currentTimeSpent = Math.round(
-            (Date.now() - questionStartTimes[currentQuestion._id]) / 1000
-          );
-          finalQuestionTimes[currentQuestion._id] = currentTimeSpent;
-        }
-
-        // 전체 소요시간 계산 (초 단위)
-        const totalTime = Math.round((Date.now() - testStartTime) / 1000);
-
-        // 디버깅을 위한 로그
-        console.log("=== 기술 테스트 제출 데이터 ===");
-        console.log("applicantId:", applicantId);
-        console.log("answers:", answers);
-        console.log("finalQuestionTimes:", finalQuestionTimes);
-        console.log("totalTime:", totalTime);
-        console.log("answers 키 개수:", Object.keys(answers).length);
-        console.log(
-          "questionTimes 키 개수:",
-          Object.keys(finalQuestionTimes).length
-        );
-
-        // 서버로 제출
-        const response = await submitTechnicalTest(
-          applicantId,
-          answers,
-          finalQuestionTimes,
-          totalTime
-        );
-
-        if (response.success) {
-          // 채점 결과는 표시하지 않고 바로 인성 테스트 안내 페이지로 이동
-          navigate(`/personality-instructions/${applicantId}`, {
-            replace: true,
-          });
-        } else {
-          throw new Error(response.message || "제출에 실패했습니다.");
-        }
-      } catch (error) {
-        console.error("테스트 제출 오류:", error);
-        alert("테스트 제출 중 오류가 발생했습니다. 다시 시도해주세요.");
-      } finally {
-        setIsSubmitting(false);
-        setTimeout(() => {
-          setIsShowingAlert(false);
-        }, 100);
-      }
-    } else {
-      // confirm 창이 닫힌 후 약간의 지연을 두어 blur 이벤트 처리
-      setTimeout(() => {
-        setIsShowingAlert(false); // alert/confirm 표시 종료
-      }, 100);
+      navigate(`/evaluation-complete/${applicantId}`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "제출 중 오류가 발생했습니다."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -384,7 +329,7 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
               </div>
               {/* 헤더 제출 버튼 */}
               <button
-                onClick={submitTest}
+                onClick={handleSubmit}
                 disabled={isSubmitting}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
               >
@@ -530,7 +475,7 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
                     </button>
                   ) : (
                     <button
-                      onClick={submitTest}
+                      onClick={handleSubmit}
                       disabled={isSubmitting}
                       className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
@@ -548,6 +493,12 @@ const TechnicalTest: React.FC<TechnicalTestProps> = ({ applicantId }) => {
       {violationCount > 0 && (
         <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
           ⚠️ 화면 이탈이 감지되었습니다. 추가 위반 시 평가가 종료됩니다.
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+          {error}
         </div>
       )}
     </div>

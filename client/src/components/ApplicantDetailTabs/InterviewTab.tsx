@@ -10,87 +10,42 @@ const InterviewTab: React.FC<InterviewTabProps> = ({
   applicant,
   onRefreshApplicant,
 }) => {
-  const [regeneratingTech, setRegeneratingTech] = useState(false);
-  const [regeneratingPersonality, setRegeneratingPersonality] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const regenerateQuestions = async (type: "technical" | "personality") => {
-    const isRegenerating =
-      type === "technical" ? regeneratingTech : regeneratingPersonality;
-    if (isRegenerating) return;
+  const handleRegenerateQuestions = async (type: string) => {
+    if (!applicant._id) return;
+
+    setIsLoading(true);
+    setError("");
 
     try {
-      console.log(`[면접 질문 재생성 시작] 타입: ${type}`);
-      console.log("지원자 ID:", applicant._id);
-
-      if (type === "technical") {
-        setRegeneratingTech(true);
-      } else {
-        setRegeneratingPersonality(true);
-      }
-
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        console.error("[면접 질문 재생성 오류] 인증 토큰 없음");
-        alert("인증 토큰이 없습니다. 다시 로그인해주세요.");
-        return;
-      }
-
-      console.log("[면접 질문 재생성] API 요청 시작");
       const response = await fetch(
-        `/api/admin/applicants/${applicant._id}/regenerate-interview-questions`,
+        `/api/applicants/${applicant._id}/interview-questions/regenerate`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ type }),
         }
       );
 
-      console.log("[면접 질문 재생성] API 응답 상태:", response.status);
       const result = await response.json();
-      console.log("[면접 질문 재생성] API 응답 데이터:", result);
 
-      if (response.ok) {
-        if (result.success) {
-          console.log("[면접 질문 재생성] 성공");
-          await onRefreshApplicant();
-          alert(
-            `${
-              type === "technical" ? "기술" : "인성"
-            } 면접 질문이 성공적으로 재생성되었습니다.`
-          );
-        } else {
-          console.error("[면접 질문 재생성] 실패:", result.message);
-          alert(
-            `${
-              type === "technical" ? "기술" : "인성"
-            } 면접 질문 재생성 중 오류가 발생했습니다.`
-          );
-        }
-      } else {
-        console.error("[면접 질문 재생성] HTTP 오류:", response.status, result);
-        alert(
-          `${
-            type === "technical" ? "기술" : "인성"
-          } 면접 질문 재생성 요청이 실패했습니다.`
-        );
+      if (!response.ok) {
+        throw new Error(result.message || "면접 질문 재생성에 실패했습니다.");
       }
-    } catch (error) {
-      console.error("[면접 질문 재생성] 예외 발생:", error);
-      alert(
-        `${
-          type === "technical" ? "기술" : "인성"
-        } 면접 질문 재생성 중 네트워크 오류가 발생했습니다.`
+
+      await onRefreshApplicant();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "면접 질문 재생성 중 오류가 발생했습니다."
       );
     } finally {
-      console.log(`[면접 질문 재생성 종료] 타입: ${type}`);
-      if (type === "technical") {
-        setRegeneratingTech(false);
-      } else {
-        setRegeneratingPersonality(false);
-      }
+      setIsLoading(false);
     }
   };
 
@@ -215,6 +170,11 @@ const InterviewTab: React.FC<InterviewTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
       {/* 그라데이션 헤더 */}
       <div className="bg-gradient-to-r from-blue-500 to-green-500 p-6 rounded-xl text-white">
         <div className="flex items-center justify-between">
@@ -253,11 +213,11 @@ const InterviewTab: React.FC<InterviewTabProps> = ({
             <h3 className="text-lg font-medium">기술 면접 질문</h3>
           </div>
           <button
-            onClick={() => regenerateQuestions("technical")}
-            disabled={regeneratingTech}
+            onClick={() => handleRegenerateQuestions("technical")}
+            disabled={isLoading}
             className="bg-white/20 hover:bg-white/30 disabled:bg-white/10 px-4 py-2 rounded-lg text-white font-medium transition-colors disabled:cursor-not-allowed"
           >
-            {regeneratingTech ? (
+            {isLoading ? (
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
                 <span>재생성 중...</span>
@@ -396,11 +356,11 @@ const InterviewTab: React.FC<InterviewTabProps> = ({
             <h3 className="text-lg font-medium">인성 면접 질문</h3>
           </div>
           <button
-            onClick={() => regenerateQuestions("personality")}
-            disabled={regeneratingPersonality}
+            onClick={() => handleRegenerateQuestions("personality")}
+            disabled={isLoading}
             className="bg-white/20 hover:bg-white/30 disabled:bg-white/10 px-4 py-2 rounded-lg text-white font-medium transition-colors disabled:cursor-not-allowed"
           >
-            {regeneratingPersonality ? (
+            {isLoading ? (
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
                 <span>재생성 중...</span>

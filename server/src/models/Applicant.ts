@@ -1,5 +1,49 @@
 import mongoose, { Document, Schema } from "mongoose";
 
+interface ITechnicalTest {
+  answers: { [key: string]: string };
+  questionTimes: { [key: string]: number };
+  totalTime: number;
+  score: number;
+  maxScore: number;
+  results: Array<{
+    questionId: string;
+    userAnswer: string;
+    correctAnswer: string | string[];
+    isCorrect: boolean;
+    timeSpent: number;
+  }>;
+  submittedAt: Date;
+}
+
+interface IPersonalityTest {
+  answers: { [key: string]: number };
+  totalTime: number;
+  submittedAt: Date;
+  questionDetails: Array<{
+    questionId: string;
+    category: string;
+    selected_answer: number;
+    reverse_scoring: boolean;
+    final_score: number;
+  }>;
+  scores: {
+    cooperate: {
+      score: number;
+      level: string;
+    };
+    responsibility: {
+      score: number;
+      level: string;
+    };
+    leadership: {
+      score: number;
+      level: string;
+    };
+    total: number;
+  };
+}
+
 // 지원자 정보 인터페이스
 export interface IApplicant extends Document {
   name: string;
@@ -8,59 +52,22 @@ export interface IApplicant extends Document {
   createdAt: Date;
   updatedAt: Date;
 
+  // 가상 필드 (계산된 값)
+  technicalScore: number;
+  technicalMaxScore: number;
+  personalityScore: number;
+
   // 부정행위 여부
   cheatingDetected?: {
     isCheating: boolean;
     reason: string;
     detectedAt: Date;
-    testType: "technical" | "personality"; // 어느 테스트에서 부정행위가 발생했는지
+    testType: "technical" | "personality";
   };
 
-  // 기술 역량 테스트 결과
-  technicalTest?: {
-    answers: { [questionId: string]: string };
-    questionTimes: { [questionId: string]: number }; // 각 문제별 소요시간 (초)
-    totalTime: number; // 전체 소요시간 (초)
-    score: number; // 총점
-    maxScore: number; // 만점
-    results: {
-      questionId: string;
-      userAnswer: string;
-      correctAnswer: string | string[];
-      isCorrect: boolean;
-      timeSpent: number;
-    }[];
-    submittedAt: Date;
-  };
-
-  // 인성 테스트 결과
-  personalityTest?: {
-    answers: { [questionId: string]: number };
-    totalTime: number;
-    submittedAt: Date;
-    questionDetails: {
-      questionId: string;
-      category: string;
-      selected_answer: number;
-      reverse_scoring: boolean;
-      final_score: number;
-    }[];
-    scores: {
-      cooperate: {
-        score: number;
-        level: string;
-      };
-      responsibility: {
-        score: number;
-        level: string;
-      };
-      leadership: {
-        score: number;
-        level: string;
-      };
-      total: number;
-    };
-  };
+  // 테스트 결과
+  technicalTest?: ITechnicalTest;
+  personalityTest?: IPersonalityTest;
 
   // AI 생성 리포트
   aiReport?: {
@@ -113,7 +120,7 @@ export interface IApplicant extends Document {
 }
 
 // 지원자 스키마 정의
-const ApplicantSchema: Schema = new Schema(
+const ApplicantSchema = new Schema<IApplicant>(
   {
     name: {
       type: String,
@@ -145,10 +152,7 @@ const ApplicantSchema: Schema = new Schema(
 
     // 부정행위 여부
     cheatingDetected: {
-      isCheating: {
-        type: Boolean,
-        default: false,
-      },
+      isCheating: Boolean,
       reason: String,
       detectedAt: Date,
       testType: {
@@ -248,21 +252,54 @@ const ApplicantSchema: Schema = new Schema(
         },
       },
       interviewQuestions: {
-        technical: Schema.Types.Mixed,
-        personality: Schema.Types.Mixed,
-        followUp: Schema.Types.Mixed,
+        technical: [
+          {
+            category: String,
+            question: String,
+            purpose: String,
+          },
+        ],
+        personality: [
+          {
+            category: String,
+            question: String,
+            purpose: String,
+          },
+        ],
+        followUp: [
+          {
+            type: String,
+            question: String,
+            purpose: String,
+          },
+        ],
       },
       generatedAt: Date,
       modelUsed: String,
     },
   },
   {
-    timestamps: true, // createdAt, updatedAt 자동 생성
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
 // 이메일 중복 체크를 위한 인덱스
 ApplicantSchema.index({ email: 1 }, { unique: true });
+
+// 가상 필드 정의
+ApplicantSchema.virtual("technicalScore").get(function (this: IApplicant) {
+  return this.technicalTest?.score ?? 0;
+});
+
+ApplicantSchema.virtual("technicalMaxScore").get(function (this: IApplicant) {
+  return this.technicalTest?.maxScore ?? 100;
+});
+
+ApplicantSchema.virtual("personalityScore").get(function (this: IApplicant) {
+  return this.personalityTest?.scores?.total ?? 0;
+});
 
 // 지원자 모델 생성
 const Applicant = mongoose.model<IApplicant>("Applicant", ApplicantSchema);

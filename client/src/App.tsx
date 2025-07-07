@@ -84,21 +84,13 @@ const InstructionsWrapper: React.FC = () => {
 
   const handleTestStart = async () => {
     try {
-      console.log("지원자 ID:", applicantId);
-      console.log("기술 역량 테스트 문제를 가져오는 중...");
-
-      // MongoDB에서 문제 가져오기
       const response = await getTechnicalTestQuestions();
 
       if (response.success && response.data) {
         const testData = response.data as TechnicalTestData;
-        console.log("문제 조회 성공:", testData);
-
-        // 테스트 페이지로 이동
         navigate(`/test/${applicantId}`);
       }
     } catch (error) {
-      console.error("문제 조회 실패:", error);
       alert("문제를 가져오는 중 오류가 발생했습니다. 다시 시도해주세요.");
     }
   };

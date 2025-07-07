@@ -11,6 +11,7 @@ interface Applicant {
   personalityScore: number;
   createdAt: string;
   hasAiReport: boolean;
+  recommendation?: "high" | "medium" | "low" | null;
   cheatingDetected?: {
     isCheating: boolean;
     reason: string;
@@ -76,8 +77,7 @@ const ApplicantList: React.FC = () => {
       } else {
         setError(data.message || "지원자 목록을 불러오는데 실패했습니다.");
       }
-    } catch (error) {
-      console.error("지원자 목록 조회 오류:", error);
+    } catch {
       setError("서버 연결에 실패했습니다.");
     } finally {
       setLoading(false);
@@ -102,8 +102,8 @@ const ApplicantList: React.FC = () => {
       if (data.success) {
         setStats(data.data);
       }
-    } catch (error) {
-      console.error("통계 조회 오류:", error);
+    } catch {
+      setError("서버 연결에 실패했습니다.");
     }
   };
 
@@ -142,6 +142,28 @@ const ApplicantList: React.FC = () => {
     if (percentage >= 80) return "text-green-600";
     if (percentage >= 60) return "text-yellow-600";
     return "text-red-600";
+  };
+
+  const getRecommendationBadge = (
+    recommendation: "high" | "medium" | "low" | null
+  ) => {
+    if (!recommendation || recommendation !== "high") return null;
+
+    return (
+      <span
+        className={`
+          inline-flex items-center
+          px-2 py-0.5
+          bg-indigo-600
+          text-white text-xs font-medium
+          rounded
+          transition-colors duration-200
+          hover:bg-indigo-700
+        `}
+      >
+        추천인재
+      </span>
+    );
   };
 
   if (loading) {
@@ -406,8 +428,13 @@ const ApplicantList: React.FC = () => {
                           <tr key={applicant.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {applicant.name}
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {applicant.name}
+                                  </div>
+                                  {getRecommendationBadge(
+                                    applicant.recommendation || null
+                                  )}
                                 </div>
                                 <div className="text-sm text-gray-500">
                                   {applicant.email}

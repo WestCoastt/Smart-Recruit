@@ -63,7 +63,6 @@ const ApplicantForm: React.FC<ApplicantFormProps> = ({ onSubmit }) => {
         }
       }
     } catch (error: unknown) {
-      console.error("지원자 정보 제출 실패:", error);
       const errorMessage =
         error instanceof Error
           ? error.message

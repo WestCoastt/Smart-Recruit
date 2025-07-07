@@ -73,8 +73,7 @@ const AIReportTab: React.FC<AIReportTabProps> = ({
       } else {
         alert("AI 리포트 재생성 요청이 실패했습니다.");
       }
-    } catch (error) {
-      console.error("AI 리포트 재생성 오류:", error);
+    } catch {
       alert("AI 리포트 재생성 중 네트워크 오류가 발생했습니다.");
     } finally {
       setRegeneratingAI(false);
