@@ -33,9 +33,6 @@ app.use(
 app.use(express.json());
 
 app.use(express.static(path.join(__dirname, "./client")));
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "./client", "index.html"));
-});
 
 // MongoDB 연결
 const connectDB = async () => {
@@ -83,6 +80,10 @@ app.get("/", (req, res) => {
       },
     },
   });
+});
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "./client", "index.html"));
 });
 
 // 404 에러 핸들링
