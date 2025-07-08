@@ -1,6 +1,6 @@
 import type { ApplicantInfo } from "../types";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "https://smart-recruit-production.up.railway.app/api";
 
 // 지원자 정보 관리 유틸리티
 export interface StoredApplicantData extends ApplicantInfo {
