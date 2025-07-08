@@ -4,6 +4,11 @@
 
 신입 및 경력 개발자 지원자를 대상으로 기술 역량, 인성, 문제 해결력을 평가하는 온라인 시스템입니다.
 
+### 배포 URL
+
+- 지원자 페이지: https://smart-recruit-production.up.railway.app/
+- 관리자 페이지: https://smart-recruit-production.up.railway.app/admin/login
+
 ## 기술 스택
 
 ### 프론트엔드
@@ -63,7 +68,7 @@ npm install
 `server` 디렉토리에 `.env` 파일을 생성하고 다음 내용을 추가하세요:
 
 ```env
-MONGODB_URI=mongodb://localhost:27017/smart-recruit
+MONGODB_URI=mongodb+srv://public:DJB4XcMl4vuA377O@cluster0.iazhbu3.mongodb.net/smart-recruit
 PORT=5000
 NODE_ENV=development
 
@@ -107,7 +112,7 @@ npm run dev:server
 - 지원자 리스트 조회
 - 개별 지원자 상세 리포트
 - **AI 기반 지능형 리포트 생성** 🤖
-  - GPT-4를 활용한 종합 평가 리포트
+  - gpt-4o-mini를 활용한 종합 평가 리포트
   - 지원자 맞춤형 면접 질문 자동 생성
   - 기술/인성 점수 기반 분석
   - 채용 추천도 및 개선점 제시
@@ -115,15 +120,7 @@ npm run dev:server
 ## 개발 진행 상황
 
 - [x] 프로젝트 초기 설정
-- [ ] 프론트엔드 기본 구조 구현
-- [ ] 백엔드 API 구현
-- [ ] 데이터베이스 모델 설계
-- [ ] 테스트 및 배포
-
-## 개발자
-
-바이브코딩 챌린지 참가자
-
-## 라이센스
-
-MIT
+- [x] 프론트엔드 기본 구조 구현
+- [x] 백엔드 API 구현
+- [x] 데이터베이스 모델 설계
+- [x] 테스트 및 배포

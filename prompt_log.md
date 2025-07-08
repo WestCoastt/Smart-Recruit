@@ -236,8 +236,6 @@
    </div>
    ```
 
-````
-
 #### 결과
 
 - 모든 탭의 헤더가 일관된 정렬과 폰트 크기로 표시
@@ -256,41 +254,42 @@
 
 1. **전체 레이아웃 개선**:
 
- - 아코디언 내부에 그라데이션 배경 적용 (`bg-gradient-to-r from-gray-50 to-slate-50`)
- - 패딩 증가 (`p-6`)와 카드 간격 확대 (`space-y-6`)
+- 아코디언 내부에 그라데이션 배경 적용 (`bg-gradient-to-r from-gray-50 to-slate-50`)
+- 패딩 증가 (`p-6`)와 카드 간격 확대 (`space-y-6`)
 
 2. **카드 스타일 적용**:
 
- - 각 정보를 독립적인 카드로 분리 (`bg-white rounded-xl p-5 shadow-sm`)
- - 호버 효과 추가 (`hover:shadow-md transition-shadow`)
- - 테두리와 그림자로 시각적 구분 강화
+- 각 정보를 독립적인 카드로 분리 (`bg-white rounded-xl p-5 shadow-sm`)
+- 호버 효과 추가 (`hover:shadow-md transition-shadow`)
+- 테두리와 그림자로 시각적 구분 강화
 
 3. **아이콘 시스템 도입**:
 
- - 질문: 파란색 물음표 아이콘 (`text-blue-600`)
- - 답변: 초록색 체크 아이콘 (`text-emerald-600`)
- - 점수: 보라색 차트 아이콘 (`text-purple-600`)
+- 질문: 파란색 물음표 아이콘 (`text-blue-600`)
+- 답변: 초록색 체크 아이콘 (`text-emerald-600`)
+- 점수: 보라색 차트 아이콘 (`text-purple-600`)
 
 4. **색상 코딩 시스템**:
 
- - 질문 카드: 파란색 테마 (`bg-blue-50`, `border-blue-300`)
- - 답변 카드: 초록색 테마 (`bg-emerald-50`, `border-emerald-300`)
- - 점수 카드: 보라색 테마
+- 질문 카드: 파란색 테마 (`bg-blue-50`, `border-blue-300`)
+- 답변 카드: 초록색 테마 (`bg-emerald-50`, `border-emerald-300`)
+- 점수 카드: 보라색 테마
 
 5. **점수 시각화**:
 
- - 큰 폰트 점수 표시 (`text-2xl font-bold`)
- - 진행률 게이지 바 추가 (0-5점 기준)
- - 그라데이션 진행률 바 (`bg-gradient-to-r from-purple-500 to-purple-600`)
+- 큰 폰트 점수 표시 (`text-2xl font-bold`)
+- 진행률 게이지 바 추가 (0-5점 기준)
+- 그라데이션 진행률 바 (`bg-gradient-to-r from-purple-500 to-purple-600`)
 
 6. **배지 시스템**:
 
- - 각 카드에 작은 배지 추가 (`Q{번호}`, `응답`, `채점 결과`)
- - 색상별 구분으로 정보 종류 식별 용이
+- 각 카드에 작은 배지 추가 (`Q{번호}`, `응답`, `채점 결과`)
+- 색상별 구분으로 정보 종류 식별 용이
 
 7. **에러 상태 개선**:
- - 노란색 경고 카드로 변경 (`bg-yellow-50 border border-yellow-200`)
- - 경고 아이콘과 함께 중앙 정렬로 표시
+
+- 노란색 경고 카드로 변경 (`bg-yellow-50 border border-yellow-200`)
+- 경고 아이콘과 함께 중앙 정렬로 표시
 
 #### 결과
 
@@ -310,24 +309,25 @@
 
 1. **여백 최적화**:
 
- - `p-6 space-y-6` → `pt-4 space-y-3`으로 여백 대폭 축소
- - 카드 패딩 `p-5` → `p-3`으로 축소
+- `p-6 space-y-6` → `pt-4 space-y-3`으로 여백 대폭 축소
+- 카드 패딩 `p-5` → `p-3`으로 축소
 
 2. **디자인 단순화**:
 
- - 복잡한 아이콘과 색상 시스템 제거
- - 불필요한 배지와 그라데이션 효과 제거
- - 호버 효과와 그림자 최소화
+- 복잡한 아이콘과 색상 시스템 제거
+- 불필요한 배지와 그라데이션 효과 제거
+- 호버 효과와 그림자 최소화
 
 3. **레이아웃 개선**:
 
- - 답변과 점수를 2열 그리드로 배치하여 공간 효율성 증대
- - 모바일에서는 1열로 자동 조정 (`grid-cols-1 md:grid-cols-2`)
+- 답변과 점수를 2열 그리드로 배치하여 공간 효율성 증대
+- 모바일에서는 1열로 자동 조정 (`grid-cols-1 md:grid-cols-2`)
 
 4. **시각적 정리**:
- - 단순한 흰색 카드 배경 (`bg-white rounded-lg p-3 border border-gray-200`)
- - 복잡한 그라데이션 배경을 단순한 회색으로 변경 (`bg-gray-50`)
- - 점수 게이지와 부가 설명 제거
+
+- 단순한 흰색 카드 배경 (`bg-white rounded-lg p-3 border border-gray-200`)
+- 복잡한 그라데이션 배경을 단순한 회색으로 변경 (`bg-gray-50`)
+- 점수 게이지와 부가 설명 제거
 
 #### 결과
 
@@ -348,17 +348,18 @@
 
 1. **그리드 시스템 변경**:
 
- - 기존: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` (3열 그리드)
- - 수정: `grid-cols-1 md:grid-cols-2` (2열 그리드)
+- 기존: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` (3열 그리드)
+- 수정: `grid-cols-1 md:grid-cols-2` (2열 그리드)
 
 2. **성장가능성 카드 수정**:
 
- - 기존: `md:col-span-2 lg:col-span-2` (2칸 차지)
- - 수정: 일반 카드와 동일한 크기 (1칸 차지)
+- 기존: `md:col-span-2 lg:col-span-2` (2칸 차지)
+- 수정: 일반 카드와 동일한 크기 (1칸 차지)
 
 3. **레이아웃 균형**:
- - 모든 인성 분석 항목이 동일한 크기의 카드로 표시
- - 2x2 균형 잡힌 그리드 배치 (협업능력, 책임감 / 리더십, 성장가능성)
+
+- 모든 인성 분석 항목이 동일한 크기의 카드로 표시
+- 2x2 균형 잡힌 그리드 배치 (협업능력, 책임감 / 리더십, 성장가능성)
 
 ### 기술테스트 버튼 색상 통일
 
@@ -371,16 +372,17 @@
 
 1. **헤더 제출 버튼 색상 변경**:
 
- - 기존: `bg-green-600 hover:bg-green-700`
- - 수정: `bg-indigo-600 hover:bg-indigo-700`
+- 기존: `bg-green-600 hover:bg-green-700`
+- 수정: `bg-indigo-600 hover:bg-indigo-700`
 
 2. **다음 문제 버튼 색상 변경**:
 
- - 기존: `bg-blue-600 hover:bg-blue-700`
- - 수정: `bg-indigo-600 hover:bg-indigo-700`
+- 기존: `bg-blue-600 hover:bg-blue-700`
+- 수정: `bg-indigo-600 hover:bg-indigo-700`
 
 3. **테스트 완료 버튼 색상 유지**:
- - 현재: `bg-green-600 hover:bg-green-700` (인성테스트와 동일)
+
+- 현재: `bg-green-600 hover:bg-green-700` (인성테스트와 동일)
 
 #### 결과
 
@@ -398,28 +400,29 @@
 
 1. **섹션 헤더 디자인 통일**:
 
- - 기존: `bg-[color]-50 px-6 py-4 border-b border-[color]-200` (평면 색상 헤더)
- - 수정: `bg-gradient-to-r from-[color] to-[color] p-4 rounded-lg text-white` (그라데이션 헤더)
+- 기존: `bg-[color]-50 px-6 py-4 border-b border-[color]-200` (평면 색상 헤더)
+- 수정: `bg-gradient-to-r from-[color] to-[color] p-4 rounded-lg text-white` (그라데이션 헤더)
 
 2. **내부 카드 디자인 통일**:
 
- - 기존: 다양한 색상 배경 카드들 (`bg-green-50`, `bg-red-50`, `bg-blue-50` 등)
- - 수정: 깔끔한 화이트 카드 (`bg-white p-4 rounded-lg border border-gray-200`)
+- 기존: 다양한 색상 배경 카드들 (`bg-green-50`, `bg-red-50`, `bg-blue-50` 등)
+- 수정: 깔끔한 화이트 카드 (`bg-white p-4 rounded-lg border border-gray-200`)
 
 3. **배지 시스템 도입**:
 
- - 각 카드에 색상별 배지 추가 (`inline-flex items-center px-2 py-1 text-xs font-semibold rounded`)
- - 작은 원형 아이콘과 함께 카테고리 표시 (`w-2 h-2 bg-[color]-500 rounded-full`)
+- 각 카드에 색상별 배지 추가 (`inline-flex items-center px-2 py-1 text-xs font-semibold rounded`)
+- 작은 원형 아이콘과 함께 카테고리 표시 (`w-2 h-2 bg-[color]-500 rounded-full`)
 
 4. **호버 효과 추가**:
 
- - 모든 카드에 `hover:shadow-md transition-shadow` 효과 적용
+- 모든 카드에 `hover:shadow-md transition-shadow` 효과 적용
 
 5. **수정된 섹션들**:
- - 종합 평가: 회색 그라데이션 헤더
- - 기술 역량 분석: 파란색 그라데이션 헤더
- - 인성 분석: 에메랄드 그라데이션 헤더
- - 면접 포인트: 앰버 그라데이션 헤더
+
+- 종합 평가: 회색 그라데이션 헤더
+- 기술 역량 분석: 파란색 그라데이션 헤더
+- 인성 분석: 에메랄드 그라데이션 헤더
+- 면접 포인트: 앰버 그라데이션 헤더
 
 #### 결과
 
@@ -439,13 +442,14 @@
 
 2. **UI 추가**:
 
- - 헤더 우측에 재생성 버튼 배치
- - 로딩 중: 스피너 + "재생성 중..." 텍스트
- - 기본 상태: 새로고침 아이콘 + "리포트 재생성" 텍스트
- - 반투명 흰색 배경, 호버/비활성 상태 스타일링
+- 헤더 우측에 재생성 버튼 배치
+- 로딩 중: 스피너 + "재생성 중..." 텍스트
+- 기본 상태: 새로고침 아이콘 + "리포트 재생성" 텍스트
+- 반투명 흰색 배경, 호버/비활성 상태 스타일링
 
 3. **메인 컴포넌트 연동**:
- - ApplicantDetail에서 fetchApplicantDetail 함수를 AIReportTab으로 전달
+
+- ApplicantDetail에서 fetchApplicantDetail 함수를 AIReportTab으로 전달
 
 ### AIReportTab 에러 수정
 
@@ -453,11 +457,13 @@
 
 1. **Missing Helper Functions**: getRecommendationColor, getRecommendationText 함수 없음
 2. **Property Access Errors**: AI 리포트 타입 정의와 실제 사용하는 속성 불일치
- - `comprehensiveEvaluation` → `mainStrengths` 배열로 변경
- - `keyStrengths` → `mainStrengths` 사용
- - `developmentAreas` → `improvementAreas` 사용
- - `detailedAssessment` → `overallLevel` 사용
- - `interviewFocus` 속성 제거 (타입에 없음)
+
+- `comprehensiveEvaluation` → `mainStrengths` 배열로 변경
+- `keyStrengths` → `mainStrengths` 사용
+- `developmentAreas` → `improvementAreas` 사용
+- `detailedAssessment` → `overallLevel` 사용
+- `interviewFocus` 속성 제거 (타입에 없음)
+
 3. **JSX Syntax Errors**: 태그 닫힘 문제, 주석 처리된 코드 문제
 
 #### 수정 내용
@@ -465,32 +471,32 @@
 1. **Helper Functions 추가**:
 
 ```typescript
- const getRecommendationColor = (recommendation: string) => {
-   switch (recommendation) {
-     case "high":
-       return "bg-green-100 text-green-800 border border-green-200";
-     case "medium":
-       return "bg-yellow-100 text-yellow-800 border border-yellow-200";
-     case "low":
-       return "bg-red-100 text-red-800 border border-red-200";
-     default:
-       return "bg-gray-100 text-gray-800 border border-gray-200";
-   }
- };
-
- const getRecommendationText = (recommendation: string) => {
-   switch (recommendation) {
-     case "high":
-       return "적극 추천";
-     case "medium":
-       return "보통";
-     case "low":
-       return "재검토 필요";
-     default:
-       return "평가 중";
-   }
+const getRecommendationColor = (recommendation: string) => {
+  switch (recommendation) {
+    case "high":
+      return "bg-green-100 text-green-800 border border-green-200";
+    case "medium":
+      return "bg-yellow-100 text-yellow-800 border border-yellow-200";
+    case "low":
+      return "bg-red-100 text-red-800 border border-red-200";
+    default:
+      return "bg-gray-100 text-gray-800 border border-gray-200";
+  }
 };
-````
+
+const getRecommendationText = (recommendation: string) => {
+  switch (recommendation) {
+    case "high":
+      return "적극 추천";
+    case "medium":
+      return "보통";
+    case "low":
+      return "재검토 필요";
+    default:
+      return "평가 중";
+  }
+};
+```
 
 2. **Property Access 수정**:
 
@@ -557,7 +563,7 @@ report: {
    - `keyStrengths` 속성 사용 (존재함)
    - `developmentAreas` 속성 사용 (존재함)
    - `detailedAssessment` 속성 사용 (존재함)
-   - `interviewFocus` 섹션 추가 (존재함)
+   - `interviewFocus` 섹션 복원 (존재함)
 
 3. **면접 포인트 섹션 복원**:
 
@@ -697,3 +703,11 @@ report: {
 - 깔끔하고 현대적인 헤더 디자인
 - 정보 구조가 명확한 기본정보 영역
 - 향상된 사용자 경험과 가독성
+
+## 2024-03-21
+
+### 배포 URL 업데이트
+
+- README.md 파일에 배포된 URL 정보 추가
+  - 지원자 페이지: https://smart-recruit-production.up.railway.app/
+  - 관리자 페이지: https://smart-recruit-production.up.railway.app/admin/login
