@@ -9,6 +9,11 @@
 - 지원자 페이지: https://smart-recruit-production.up.railway.app/
 - 관리자 페이지: https://smart-recruit-production.up.railway.app/admin/login
 
+### 관리자페이지 로그인 정보
+
+- 아이디: admin
+- 비밀번호: admin123
+
 ## 기술 스택
 
 ### 프론트엔드
