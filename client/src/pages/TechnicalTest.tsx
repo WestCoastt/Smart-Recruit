@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import {
-  getTechnicalTestQuestions,
-  getStoredApplicantData,
-  submitTechnicalTest,
-} from "../utils/api";
+import { useNavigate } from "react-router-dom";
+import { getTechnicalTestQuestions, submitTechnicalTest } from "../utils/api";
 import type {
   Question,
   TechnicalTestData,
