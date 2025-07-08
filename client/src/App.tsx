@@ -164,7 +164,6 @@ const TechnicalTestWrapper: React.FC = () => {
 // 인성 테스트 안내사항 페이지 래퍼
 const PersonalityInstructionsWrapper: React.FC = () => {
   const { applicantId } = useParams<{ applicantId: string }>();
-  const navigate = useNavigate();
 
   // URL에 applicantId가 없거나 저장된 정보와 일치하지 않으면 메인 페이지로 리다이렉트
   if (!applicantId || !validateApplicantId(applicantId)) {
