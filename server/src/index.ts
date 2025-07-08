@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import applicantsRouter from "./routes/applicants";
@@ -26,6 +27,8 @@ app.use(
   })
 );
 app.use(express.json());
+
+app.use(express.static(path.join(__dirname, "../client/dist")));
 
 // MongoDB 연결
 const connectDB = async () => {
