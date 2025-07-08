@@ -32,7 +32,10 @@ app.use(
 );
 app.use(express.json());
 
-app.use(express.static(path.join(__dirname, "../client/dist")));
+app.use(express.static(path.join(__dirname, "./client")));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "./client", "index.html"));
+});
 
 // MongoDB 연결
 const connectDB = async () => {
@@ -106,10 +109,6 @@ app.use(
   }
 );
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
-});
-
 // 서버 시작
 const startServer = async () => {
   await connectDB();
@@ -120,7 +119,6 @@ const startServer = async () => {
   app.listen(PORT, () => {
     console.log(`서버가 포트 ${PORT}에서 실행 중입니다.`);
     console.log(`API 문서: http://localhost:${PORT}`);
-    console.log("기본 관리자 계정: admin / admin123");
   });
 };
 
