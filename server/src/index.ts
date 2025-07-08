@@ -102,6 +102,10 @@ app.use(
   }
 );
 
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
+});
+
 // 서버 시작
 const startServer = async () => {
   await connectDB();
