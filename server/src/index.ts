@@ -22,7 +22,11 @@ const PORT = process.env.PORT || 5000;
 // 미들웨어
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin:
+      process.env.NODE_ENV === "production"
+        ? process.env.CLIENT_URL ||
+          "https://smart-recruit-production.up.railway.app"
+        : "http://localhost:5173",
     credentials: true,
   })
 );
